@@ -1,3 +1,4 @@
+#pragma once
 #include <sys/epoll.h>
 #include <iostream>
 #include <netinet/in.h>
@@ -31,4 +32,5 @@ class request
 
 		const std::string&	getRequest();
 		int					getEventFd();
+		int			request_status;
 };
