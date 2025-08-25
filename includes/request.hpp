@@ -8,6 +8,7 @@
 #include <map>
 #include <cstring>
 #include <cstdio>
+#include <cerrno>
 
 class request
 {

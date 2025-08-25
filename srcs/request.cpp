@@ -25,7 +25,7 @@ void request::readIt(int fd)
 
 bool	isRequestComplete(const std::string &buf)
 {
-	write(1, buf.c_str(), buf.size());
+	//write(1, buf.c_str(), buf.size());
     return buf.find("\r\n\r\n") != std::string::npos;
 }
 
@@ -36,28 +36,44 @@ std::string request::listen()
 	//if (n == (int)_events.size())
     //    _events.resize(_events.size() * 2);
 
-	//write(1, "FUK ", 4);
+	write(1, "Fuk ", 4);
 	for (int i = 0; i < n; i++)
 	{
-		write(1, "FUK ", 4);
-		if (_events[i].data.fd == _server)
-		{
-			int client = accept(_server, NULL, NULL); //creating a socket, one per log in the web
+		int fd = _events[i].data.fd;
 
-			int flags = fcntl(client, F_GETFL, 0);
-			fcntl(client, F_SETFL, flags | O_NONBLOCK);
-
-			_ev.events = EPOLLIN;
-			_ev.data.fd = client;
-
-			epoll_ctl(_ep, EPOLL_CTL_ADD, client, &_ev);
+		if (fd == _server) {
+			// New incoming connections waiting
+			while (true) {
+				int client = accept(_server, NULL, NULL);
+				if (client == -1) {
+					if (errno == EAGAIN || errno == EWOULDBLOCK) break; // No more pending
+					perror("accept");
+					break;
+				}
+				fcntl(client, F_SETFL, O_NONBLOCK);
+				int flags = fcntl(fd, F_GETFL, 0);
+				/*
+				if (flags & O_NONBLOCK) {
+					std::cout << "Socket is non-blocking\n";
+				} else {
+					std::cout << "Socket is blocking\n";
+				}
+				*/
+				_events[i].events = EPOLLIN;
+				_events[i].data.fd = client;
+				epoll_ctl(_ep, EPOLL_CTL_ADD, client, &_events[i]);
+			}
 		}
-		readIt(_events[i].data.fd);
-		if (isRequestComplete(_buffers[i]))
+		else
 		{
-			write(1, _buffers[_events[i].data.fd].c_str(), _buffers[_events[i].data.fd].size());
-			close(_events[i].data.fd);
-			_buffers[_events[i].data.fd].clear();
+			// Existing client has data to read
+			readIt(fd);
+			if (isRequestComplete(_buffers[fd]))
+			{
+				write(1, _buffers[_events[i].data.fd].c_str(), _buffers[_events[i].data.fd].size());
+				close(_events[i].data.fd);
+				_buffers[_events[i].data.fd].clear();
+			}
 		}
 	}
 	return ("");
