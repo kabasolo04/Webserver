@@ -74,6 +74,7 @@ void	request::listen()
 				write(1, _buffers[fd].c_str(), _buffers[fd].size());
 				close(fd);
 				_buffers[fd].clear();
+				throw std::runtime_error("Request completed");
 			}
 		}
 	}

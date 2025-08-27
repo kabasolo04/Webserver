@@ -38,8 +38,8 @@ int main()
 	
 	request req(server);
 
-//	while (1)
-//	{
+	while (1)
+	{
 //		vector response	res;
 
 		try
@@ -50,9 +50,10 @@ int main()
 		catch(const std::exception& e)
 		{
 //			res = makeErrorResponse(e);
+			break;
 		}
 
 //		res.sendResponse();
-//	}
+	}
 	close(server);
 }
