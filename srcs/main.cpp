@@ -1,12 +1,15 @@
-#include "request.hpp"
-#include <cstdlib>
-#include <sys/socket.h>
-#include <cstdio>
+#include "WebServer.hpp"
 
 #define PORT 3030
 
 int main()
 {
+//	if (argc != 2)
+//		return (0);
+//	try {
+//		conf::setConfig(argv[2]);
+//	}
+	
 	int server = socket(AF_INET, SOCK_STREAM, 0);
 	int flags = fcntl(server, F_GETFL, 0);
 	if (flags == -1) perror("fcntl get");
@@ -35,17 +38,21 @@ int main()
 	
 	request req(server);
 
-	while (1)
-	{
+//	while (1)
+//	{
+//		vector response	res;
+
 		try
 		{
 			req.listen();
+//			res = makeResponse(req);
 		}
 		catch(const std::exception& e)
 		{
-			req.~request();
-			std::cerr << e.what() << '\n';
+//			res = makeErrorResponse(e);
 		}
-	}
+
+//		res.sendResponse();
+//	}
 	close(server);
 }
