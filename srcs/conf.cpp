@@ -1,15 +1,90 @@
 #include "conf.hpp"
 
-int			conf::_port = 8080;
-std::string	conf::_serverName = "myWeb";
-std::string	conf::_index = "index.html";
+bool	conf::_autoindex = true;
+
+int	conf::_port = 8080;
+int	conf::_server = 0;
+int	conf::_bodySize = 200000;
+
 std::string	conf::_root = "./www";
+std::string conf::_host = "127.0.0.1";
+std::string	conf::_index = "index.html";
+std::string	conf::_serverName = "myWeb";
 
-void    conf::setConfig(char* filename)
+std::vector<std::string> conf::_methods;
+
+//-------------------------------------------------------------------------------------------------------//
+// All this default setting will only exists until the config file parsing exists and works as intended. //
+//-------------------------------------------------------------------------------------------------------//
+
+int	createServer(int port)
 {
+	int listenFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listenFd < 0) {
+        std::cerr << "socket failed: " << strerror(errno) << "\n";
+        return -1;
+    }
 
+    int yes = 1;
+    if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+        std::cerr << "setsockopt failed: " << strerror(errno) << "\n";
+        close(listenFd);
+        return -1;
+    }
+
+    struct sockaddr_in addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); // bind to all interfaces
+    addr.sin_port = htons(port);
+
+    if (bind(listenFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        std::cerr << "bind failed: " << strerror(errno) << "\n";
+        close(listenFd);
+        return -1;
+    }
+
+    if (listen(listenFd, SOMAXCONN) < 0) {
+        std::cerr << "listen failed: " << strerror(errno) << "\n";
+        close(listenFd);
+        return -1;
+    }
+
+    return setNonBlocking(listenFd);  // Making it non-blocking
 }
+
+int	setNonBlocking(int fd)
+{
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
+		return -1;
+	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+void	conf::setConfig(std::string filename)
+{
+	_methods.push_back("GET");
+    _methods.push_back("POST");
+    _methods.push_back("DELETE");
+
+	(void)filename;
+	//Configuration file parsing
+
+	//_server = createServer(_port);
+}
+
+const bool&			conf::autoindex()	{ return _autoindex;	}
+
 const int&  		conf::port()		{ return _port;			}
-const std::string&	conf::serverName()	{ return _serverName;	}
-const std::string&	conf::index()		{ return _index;		}
+const int&  		conf::server()		{ return _server;		}
+const int&  		conf::bodySize()	{ return _bodySize;		}
+
 const std::string&	conf::root()		{ return _root;			}
+const std::string&	conf::host()		{ return _host;			}
+const std::string&	conf::index()		{ return _index;		}
+const std::string&	conf::serverName()	{ return _serverName;	}	
+
+bool	conf::methodAllowed(std::string method)
+{
+	return (std::find(_methods.begin(), _methods.end(), method) != _methods.end());
+}

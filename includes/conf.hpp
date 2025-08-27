@@ -4,20 +4,36 @@
 class conf
 {
 	private:
+		static bool						_autoindex;
+
 		static int						_port;
-		static std::string				_serverName;
-		static std::string				_index;
+		static int						_server;
+		static int						_bodySize;
+
 		static std::string				_root;
+		static std::string				_host;
+		static std::string				_index;
+		static std::string				_serverName;
+
 		static std::vector<std::string>	_methods;
 
 		conf();
 	
-	protected:
-		void	setConfig(char* filename);
-
 	public:
-		const int&			port();
-		const std::string&	serverName();
-		const std::string&	index();
-		const std::string&	root();
+		static void	setConfig(std::string filename);
+
+		static const bool&			autoindex();
+
+		static const int&			port();
+		static const int&			server();
+		static const int&			bodySize();
+
+		static const std::string&	root();
+		static const std::string&	host();
+		static const std::string&	index();
+		static const std::string&	serverName();
+
+		static bool	methodAllowed(std::string method);
 };
+
+int		setNonBlocking(int fd);
