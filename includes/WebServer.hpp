@@ -27,7 +27,11 @@
 #include <dirent.h>       // for opendir, readdir, closedir
 
 
+//#include "conf.hpp"
+//#include "request.hpp"
+//#include "response.hpp"
 
-#include "conf.hpp"
-#include "request.hpp"
-#include "response.hpp"
+//#include "factory.hpp"
+//#include "Iresp.hpp"
+//#include "koldoRequest.hpp"
+//#include "methods.hpp"

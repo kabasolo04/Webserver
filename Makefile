@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX := c++
-CXXFLAGS := -Wall -Wextra -Werror -std=c++98 -I includes
+CXXFLAGS := -Wall -Wextra -Werror -std=c++98 -g3 -I includes
 
 # Project name
 NAME := webserver
@@ -10,7 +10,7 @@ SRC_DIR := srcs
 OBJ_DIR := obj
 
 # Source and object files
-SRCS := $(SRC_DIR)/main.cpp $(SRC_DIR)/request.cpp $(SRC_DIR)/conf.cpp
+SRCS := $(SRC_DIR)/main.cpp $(SRC_DIR)/methods.cpp $(SRC_DIR)/request.cpp $(SRC_DIR)/conf.cpp $(SRC_DIR)/resp.cpp
 OBJS := $(SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
 # Default rule

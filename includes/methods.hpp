@@ -1,13 +1,19 @@
-#include "Iresp.hpp"
+#pragma once
 
-class Get: public Iresp
+#include "resp.hpp"
+
+class get: public resp
 {
+	private:
+		get();
 	public:
-		Get();
-		~Get();
-		void	readSocket();
+		get(int fd);
+		~get();
 		void	doTheThing();
+		bool	makeTheCheck(std::string buffer);
 };
+
+/*
 
 class Post: public Iresp
 {
@@ -26,3 +32,5 @@ class Delete: public Iresp
 		void	readSocket();
 		void	doTheThing();
 };
+
+*/

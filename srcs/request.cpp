@@ -1,96 +1,39 @@
 #include "request.hpp"
+#include "methods.hpp"
+#include "conf.hpp"
 
-request::request(int server): _server(server), _events(128)
+std::map<int, resp*> request::_responses;
+
+void	request::delResp(int fd)
 {
-	_ep = epoll_create1(0);
-	_ev.events = EPOLLIN;
-	_ev.data.fd = _server;
-	epoll_ctl(_ep, EPOLL_CTL_ADD, _server, &_ev);
-}
-
-request::~request()
-{
-	close(_ep);
-}
-void request::readIt(int fd)
-{
-    char buffer[512];
-
-    ssize_t len = read(fd, buffer, sizeof(buffer));
-
-	if (len > 0)
-		_buffers[fd].append(buffer, len);
-}
-
-bool	isRequestComplete(const std::string &buf)
-{
-    return buf.find("\r\n\r\n") != std::string::npos;
-}
-
-void request::myAccept(int i)
-{
-
-	while (true)
+	std::map<int, resp*>::iterator it = _responses.find(fd);
+	if (it != _responses.end())
 	{
-		int client = accept(_server, NULL, NULL);
-
-		if (client == -1)
-		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK) break; // No more pending
-			perror("accept");
-			break;
-		}
-
-		fcntl(client, F_SETFL, O_NONBLOCK); // Making it non-blocking
-		int flags = fcntl(_events[i].data.fd, F_GETFL, 0);
-		(void)flags;
-
-		_events[i].events = EPOLLIN;
-		_events[i].data.fd = client;
-		epoll_ctl(_ep, EPOLL_CTL_ADD, client, &_events[i]);
+		delete it->second;   // important!
+		close(fd);
+		_responses.erase(it);
 	}
 }
 
-void	request::listen()
+void	request::addResp(int fd)
 {
-	int n = epoll_wait(_ep, _events.data(), _events.size(), -1);
-
-	if (n == (int)_events.size())
-        _events.resize(_events.size() * 2);
-
-	for (int i = 0; i < n; i++)
-	{
-		int fd = _events[i].data.fd;
-
-		if (fd == _server)
-		{
-			myAccept(i); // New incoming connections waiting
-		}
-		else
-		{
-			readIt(fd);
-			if (isRequestComplete(_buffers[fd]))
-			{
-				write(1, _buffers[fd].c_str(), _buffers[fd].size());
-				close(fd);
-				_buffers[fd].clear();
-				throw std::runtime_error("Request completed");
-			}
-		}
-	}
+	delResp(fd);
+	setNonBlocking(fd);
+	_responses[fd] = new get(fd);
 }
 
-class myClass
+void	request::readReq(int fd)
 {
-	private:
-
-		static std::string name;
-
-		myClass();
-		~myClass();
-
-	public:
-
-		void				setName();
-		const std::string&	getName();
-};
+	std::map<int, resp*>::iterator it = _responses.find(fd);
+	if (it == _responses.end())
+	{
+		addResp(fd);
+		it = _responses.find(fd);
+	}
+	it->second->readSocket();
+	if (it->second->finished())
+	{
+		it->second->doTheThing();
+		delResp(fd);
+	}
+}

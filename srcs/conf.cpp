@@ -20,57 +20,61 @@ std::vector<std::string> conf::_methods;
 int	createServer(int port)
 {
 	int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenFd < 0) {
-        std::cerr << "socket failed: " << strerror(errno) << "\n";
-        return -1;
-    }
+	if (listenFd < 0) {
+		std::cerr << "socket failed: " << strerror(errno) << "\n";
+		return -1;
+	}
 
-    int yes = 1;
-    if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
-        std::cerr << "setsockopt failed: " << strerror(errno) << "\n";
-        close(listenFd);
-        return -1;
-    }
+	int yes = 1;
+	if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+		std::cerr << "setsockopt failed: " << strerror(errno) << "\n";
+		close(listenFd);
+		return -1;
+	}
 
-    struct sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY); // bind to all interfaces
-    addr.sin_port = htons(port);
+	struct sockaddr_in addr;
+	//std::memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY; // bind to all interfaces
+	addr.sin_port = htons(port);
 
-    if (bind(listenFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "bind failed: " << strerror(errno) << "\n";
-        close(listenFd);
-        return -1;
-    }
+	if (bind(listenFd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+		std::cerr << "bind failed: " << strerror(errno) << "\n";
+		close(listenFd);
+		return -1;
+	}
 
-    if (listen(listenFd, SOMAXCONN) < 0) {
-        std::cerr << "listen failed: " << strerror(errno) << "\n";
-        close(listenFd);
-        return -1;
-    }
-
-    return setNonBlocking(listenFd);  // Making it non-blocking
+	if (listen(listenFd, SOMAXCONN) < 0) {
+		std::cerr << "listen failed: " << strerror(errno) << "\n";
+		close(listenFd);
+		return -1;
+	}
+	return listenFd;
 }
 
-int	setNonBlocking(int fd)
+int setNonBlocking(int fd)
 {
-	int flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1)
-		return -1;
-	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    int old_option = fcntl(fd, F_GETFL);
+    int new_option = old_option | O_NONBLOCK;
+
+    if (old_option == -1)
+        return -1;
+    if (fcntl(fd, F_SETFL, new_option) == -1)
+        return -1;
+    return 0;  // <-- returns 0 on success?
 }
 
 void	conf::setConfig(std::string filename)
 {
 	_methods.push_back("GET");
-    _methods.push_back("POST");
-    _methods.push_back("DELETE");
+	_methods.push_back("POST");
+	_methods.push_back("DELETE");
 
 	(void)filename;
 	//Configuration file parsing
 
-	//_server = createServer(_port);
+	_server = createServer(_port);
+	setNonBlocking(_server);
 }
 
 const bool&			conf::autoindex()	{ return _autoindex;	}
