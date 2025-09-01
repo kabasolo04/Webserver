@@ -1,36 +1,39 @@
 #pragma once
 
-#include "resp.hpp"
+#include "WebServer.hpp"
 
-class get: public resp
+class myGet: public response
 {
 	private:
-		get();
+		myGet();
+	
 	public:
-		get(int fd);
-		~get();
+		myGet(int fd, std::string buffer);
+		~myGet();
 		void	doTheThing();
-		bool	makeTheCheck(std::string buffer);
+		bool	makeTheCheck();
 };
 
-/*
-
-class Post: public Iresp
+class myPost: public response
 {
+	private:
+		myPost();
+
 	public:
-		Post();
-		~Post();
-		void	readSocket();
+		myPost(int fd, std::string buffer);
+		~myPost();
 		void	doTheThing();
+		bool	makeTheCheck();
 };
 
-class Delete: public Iresp
+class myDelete: public response
 {
+	private:
+		myDelete();
+	
 	public:
-		Delete();
-		~Delete();
-		void	readSocket();
+		myDelete(int fd, std::string buffer);
+		~myDelete();
 		void	doTheThing();
+		bool	makeTheCheck();
 };
-
-*/

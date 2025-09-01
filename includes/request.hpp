@@ -2,12 +2,10 @@
 
 #include "WebServer.hpp"
 
-class resp;
-
 class request
 {
 	private:
-		static std::map<int, resp*> 	_responses;
+		static std::map<int, response*> 	_responses;
 
 		request();
 		~request();

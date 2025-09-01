@@ -26,12 +26,11 @@
 #include <sys/stat.h>     // for stat
 #include <dirent.h>       // for opendir, readdir, closedir
 
+#include <sstream> 
 
-//#include "conf.hpp"
-//#include "request.hpp"
-//#include "response.hpp"
+#include "conf.hpp"
+#include "response.hpp"
+#include "request.hpp"
+#include "methods.hpp"
 
 //#include "factory.hpp"
-//#include "Iresp.hpp"
-//#include "koldoRequest.hpp"
-//#include "methods.hpp"

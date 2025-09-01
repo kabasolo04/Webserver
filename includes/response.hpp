@@ -2,25 +2,24 @@
 
 #include "WebServer.hpp"
 
-class resp //Interface
+class response
 {
 	protected:
 		int 			_fd;
+		std::string		_buffer;
 		
 	private:
-		std::string		_buffer;
 		bool			_finished;
 
-		
 		void	readFd();
-		resp();
+		response();
 
 	public:
-		resp(int fd);
-		virtual ~resp();
+		response(int fd, std::string buffer);
+		virtual ~response();
 		
 		virtual void	doTheThing() = 0;
-		virtual bool	makeTheCheck(std::string buffer) = 0;
+		virtual bool	makeTheCheck() = 0;
 		
 		void	readSocket();
 		bool	finished();

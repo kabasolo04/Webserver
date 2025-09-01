@@ -1,4 +1,4 @@
-#include "conf.hpp"
+#include "WebServer.hpp"
 
 bool	conf::_autoindex = true;
 
