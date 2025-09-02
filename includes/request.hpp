@@ -4,16 +4,36 @@
 
 class request
 {
+	protected:
+		int 			_fd;
+		std::string		_buffer;
+		
 	private:
-		static std::map<int, response*> 	_responses;
+		bool			_finished;
 
+		void	readFd();
 		request();
-		~request();
-
-		static void	delResp(int fd);
-		static void	addResp(int fd);
 
 	public:
-		static void	readReq(int fd);
+		request(int fd, std::string buffer);
+		virtual ~request();
+		
+		virtual void	doTheThing() = 0;
+		virtual bool	makeTheCheck() = 0;
+		
+		void	readSocket();
+		bool	finished();
 };
+	
+	/*
+	std::string		_header;
+	std::string		_body;
 
+	std::string		_method;
+	std::string		_path;
+	std::string		_http_version;
+	unsigned int	_status;
+	bool			_allowed;
+
+	struct epoll_event	_event;
+	*/

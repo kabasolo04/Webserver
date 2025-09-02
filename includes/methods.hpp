@@ -2,7 +2,7 @@
 
 #include "WebServer.hpp"
 
-class myGet: public response
+class myGet: public request
 {
 	private:
 		myGet();
@@ -14,7 +14,7 @@ class myGet: public response
 		bool	makeTheCheck();
 };
 
-class myPost: public response
+class myPost: public request
 {
 	private:
 		myPost();
@@ -26,7 +26,7 @@ class myPost: public response
 		bool	makeTheCheck();
 };
 
-class myDelete: public response
+class myDelete: public request
 {
 	private:
 		myDelete();

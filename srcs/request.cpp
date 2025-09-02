@@ -1,54 +1,32 @@
 #include "WebServer.hpp"
 
-std::map<int, response*> request::_responses;
+request::request() {}
 
-void	request::delResp(int fd)
+request::request(int fd, std::string buffer): _fd(fd), _buffer(buffer), _finished(0) {}
+
+request::~request() {}
+
+void	request::readFd()
 {
-	std::map<int, response*>::iterator it = _responses.find(fd);
-	if (it != _responses.end())
+	char buffer[100];
+
+	ssize_t len = read(_fd, buffer, sizeof(buffer));
+
+	if (len > 0)
 	{
-		delete it->second;   // important!
-		close(fd);
-		_responses.erase(it);
+		_buffer.append(buffer, len);
+		//std::cout << _buffer << std::endl;
 	}
 }
 
-/*
-response*	createMethod(int fd)
+void	request::readSocket()
 {
-	Markel haz lo tuyo warro
-}
-*/
-
-void	request::addResp(int fd)
-{
-	delResp(fd);
-	//_responses[fd] = createMethod(fd);
-	_responses[fd] = new myGet(fd, "Mujejeej");
+	readFd();
+	if (makeTheCheck())
+		_finished = 1;
 }
 
-void	request::readReq(int fd)
+bool	request::finished()
 {
-	std::map<int, response*>::iterator it = _responses.find(fd);
-	if (it == _responses.end())
-	{
-		addResp(fd);
-		it = _responses.find(fd);
-	}
-	try
-	{
-		it->second->readSocket();
-		if (it->second->finished())
-		{
-			it->second->doTheThing();
-			delResp(fd);
-		}
-	}
-	catch(const std::exception& e)
-	{
-		//generation of errors
-		//error::createResponse(it->second);
-		//delResp()
-		std::cerr << e.what() << '\n';
-	}
+	return (_finished);
 }

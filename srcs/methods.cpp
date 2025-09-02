@@ -4,7 +4,7 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(int fd, std::string buffer): response(fd, buffer) {}
+myGet::myGet(int fd, std::string buffer): request(fd, buffer) {}
 
 myGet::~myGet() {}
 
@@ -24,10 +24,8 @@ void myGet::doTheThing()
 	oss << "\r\n";
 	oss << html;
 
-	std::string response = oss.str();
-	write(_fd, response.c_str(), response.size());
-
-
+	std::string request = oss.str();
+	write(_fd, request.c_str(), request.size());
 }
 
 bool	myGet::makeTheCheck()
@@ -39,15 +37,9 @@ bool	myGet::makeTheCheck()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(int fd, std::string buffer): response(fd, buffer)
-{
+myPost::myPost(int fd, std::string buffer): request(fd, buffer) {}
 
-}
-
-myPost::~myPost()
-{
-
-}
+myPost::~myPost() {}
 
 void	myPost::doTheThing()
 {
@@ -56,22 +48,17 @@ void	myPost::doTheThing()
 
 bool	myPost::makeTheCheck()
 {
-	return (true);
+	return true;
+	
 }
 
 //---------------------------------------------------------------------------//
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(int fd, std::string buffer): response(fd, buffer)
-{
+myDelete::myDelete(int fd, std::string buffer): request(fd, buffer) {}
 
-}
-
-myDelete::~myDelete()
-{
-
-}
+myDelete::~myDelete() {}
 
 void	myDelete::doTheThing()
 {

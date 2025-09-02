@@ -69,7 +69,7 @@ int main()
 			if (fd == conf::server())
 				myAccept(epfd);
 			else
-				request::readReq(fd);
+				requestHandler::readReq(fd);
 		}
 		usleep(100000);
 	}
