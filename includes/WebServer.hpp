@@ -27,6 +27,7 @@
 #include <dirent.h>       // for opendir, readdir, closedir
 
 #include <sstream> 
+#include <fstream> 
 
 #include "conf.hpp"
 #include "request.hpp"

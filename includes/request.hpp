@@ -19,6 +19,7 @@ class request
 		virtual ~request();
 		
 		virtual void	doTheThing() = 0;
+		/* virtual void	brain(const std::string& status_n_msg, std::ifstream& file) = 0; */
 		virtual bool	makeTheCheck() = 0;
 		
 		void	readSocket();

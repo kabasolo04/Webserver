@@ -10,8 +10,10 @@ class myGet: public request
 	public:
 		myGet(int fd, std::string buffer);
 		~myGet();
-		void	doTheThing();
-		bool	makeTheCheck();
+		void		brain(const std::string& status_n_msg, std::ifstream& file);
+		void		doTheThing();
+		std::string	getFileToOpen();
+		bool		makeTheCheck();
 };
 
 class myPost: public request
@@ -22,8 +24,8 @@ class myPost: public request
 	public:
 		myPost(int fd, std::string buffer);
 		~myPost();
-		void	doTheThing();
-		bool	makeTheCheck();
+		void		doTheThing();
+		bool		makeTheCheck();
 };
 
 class myDelete: public request
@@ -34,6 +36,6 @@ class myDelete: public request
 	public:
 		myDelete(int fd, std::string buffer);
 		~myDelete();
-		void	doTheThing();
-		bool	makeTheCheck();
+		void		doTheThing();
+		bool		makeTheCheck();
 };

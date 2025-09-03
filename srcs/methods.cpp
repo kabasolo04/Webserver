@@ -8,24 +8,60 @@ myGet::myGet(int fd, std::string buffer): request(fd, buffer) {}
 
 myGet::~myGet() {}
 
-void myGet::doTheThing()
+void		myGet::brain(const std::string& status_n_msg, std::ifstream& file)
 {
-	std::string html = "<!DOCTYPE html>\n"
-					   "<html>\n"
-					   "<head><title>Hello</title></head>\n"
-					   "<body><h1>Hello, World!</h1></body>\n"
-					   "</html>";
+	std::string		line;
+	std::string		buffer;
+	std::ostringstream	oss;
 
-	std::ostringstream oss;
-	oss << "HTTP/1.1 200 OK\r\n";
+	buffer = "";
+	while (std::getline(file, line))
+		buffer += line;
+	oss << "HTTP/1.1 " << status_n_msg << " \r\n";
 	oss << "Content-Type: text/html\r\n";
-	oss << "Content-Length: " << html.size() << "\r\n";
+	oss << "Content-Length: " << buffer.size() << "\r\n";
 	oss << "Connection: close\r\n";
 	oss << "\r\n";
-	oss << html;
+	oss << buffer;
+	std::string response = oss.str();
+	write(_fd, response.c_str(), response.size());
+}
 
-	std::string request = oss.str();
-	write(_fd, request.c_str(), request.size());
+std::string	myGet::getFileToOpen()
+{
+	std::string	full_request_string = this->_buffer;
+	std::string	path = "";
+	size_t		i = 0;
+	size_t		pos = full_request_string.find(' ');
+
+	if (pos == std::string::npos)
+		throw std::runtime_error("Invalid request: no space found");
+	while (full_request_string[i] != ' ')
+	{
+		path += full_request_string[i];
+		i++;
+	}
+	/* std::cout << path << std::endl; */
+	return (path);
+	/* return ("/"); */
+}
+
+void		myGet::doTheThing()
+{
+	std::string	file_to_open = getFileToOpen();
+	std::ifstream	file;
+	if (file_to_open == "/")
+		file.open("./www/index.html");
+	else
+		file.open(file_to_open.c_str());
+
+	if (!file.is_open())
+	{
+		file.open("./www/404.html");
+		brain("404 NOT FOUND", file);
+		return ;
+	}
+	brain("200 OK", file);
 }
 
 bool	myGet::makeTheCheck()
