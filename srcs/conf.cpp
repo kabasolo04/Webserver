@@ -2,9 +2,10 @@
 
 bool	conf::_autoindex = true;
 
-int	conf::_port = 8080;
-int	conf::_server = 0;
-int	conf::_bodySize = 200000;
+int		conf::_port = 8080;
+int		conf::_server = 0;
+int		conf::_bodySize = 200000;
+size_t	conf::_headerSize = 8192;
 
 std::string	conf::_root = "./www";
 std::string conf::_host = "127.0.0.1";
@@ -82,6 +83,7 @@ const bool&			conf::autoindex()	{ return _autoindex;	}
 const int&  		conf::port()		{ return _port;			}
 const int&  		conf::server()		{ return _server;		}
 const int&  		conf::bodySize()	{ return _bodySize;		}
+const size_t&  		conf::headerSize()	{ return _headerSize;	}
 
 const std::string&	conf::root()		{ return _root;			}
 const std::string&	conf::host()		{ return _host;			}

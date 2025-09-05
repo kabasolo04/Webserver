@@ -2,11 +2,16 @@
 
 #include "WebServer.hpp"
 
+#define MAX_HEADER_SIZE = 8192
+
 class request
 {
 	protected:
-		int 			_fd;
-		std::string		_buffer;
+		int									_fd;
+		std::string							_buffer;
+		std::string							_path;
+		std::string							_protocol;
+		std::map<std::string, std::string>	_headers;
 		
 	private:
 		bool			_finished;
@@ -22,8 +27,10 @@ class request
 		/* virtual void	brain(const std::string& status_n_msg, std::ifstream& file) = 0; */
 		virtual bool	makeTheCheck() = 0;
 		
-		void	readSocket();
-		bool	finished();
+		void		readSocket();
+		bool		finished();
+		void		getReqLineVars();
+		void		getHeaderVars();
 };
 	
 	/*

@@ -27,33 +27,15 @@ void		myGet::brain(const std::string& status_n_msg, std::ifstream& file)
 	write(_fd, response.c_str(), response.size());
 }
 
-std::string	myGet::getFileToOpen()
-{
-	std::string	full_request_string = this->_buffer;
-	std::string	path = "";
-	size_t		i = 0;
-	size_t		pos = full_request_string.find(' ');
-
-	if (pos == std::string::npos)
-		throw std::runtime_error("Invalid request: no space found");
-	while (full_request_string[i] != ' ')
-	{
-		path += full_request_string[i];
-		i++;
-	}
-	/* std::cout << path << std::endl; */
-	return (path);
-	/* return ("/"); */
-}
-
 void		myGet::doTheThing()
 {
-	std::string	file_to_open = getFileToOpen();
+	getReqLineVars();
+	getHeaderVars();
 	std::ifstream	file;
-	if (file_to_open == "/")
+	if (_path == "/")
 		file.open("./www/index.html");
 	else
-		file.open(file_to_open.c_str());
+		file.open(_path.c_str());
 
 	if (!file.is_open())
 	{

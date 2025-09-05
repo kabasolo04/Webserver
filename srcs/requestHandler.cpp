@@ -2,7 +2,7 @@
 
 std::map<int, request*> requestHandler::_requests;
 
-void	requestHandler::delResp(int fd)
+void	requestHandler::delReq(int fd)
 {
 	std::map<int, request*>::iterator it = _requests.find(fd);
 	if (it != _requests.end())
@@ -38,9 +38,9 @@ request*	createMethod(int fd)
 	throw std::runtime_error("Invalid request");
 }
 
-void	requestHandler::addResp(int fd)
+void	requestHandler::addReq(int fd)
 {
-	delResp(fd);
+	delReq(fd);
 	_requests[fd] = createMethod(fd);
 	//_requests[fd] = new myGet(fd, "Mujejeej");
 }
@@ -50,7 +50,7 @@ void	requestHandler::readReq(int fd)
 	std::map<int, request*>::iterator it = _requests.find(fd);
 	if (it == _requests.end())
 	{
-		addResp(fd);
+		addReq(fd);
 		it = _requests.find(fd);
 	}
 	try
@@ -59,7 +59,7 @@ void	requestHandler::readReq(int fd)
 		if (it->second->finished())
 		{
 			it->second->doTheThing();
-			delResp(fd);
+			delReq(fd);
 		}
 	}
 	catch(const std::exception& e)

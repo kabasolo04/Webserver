@@ -12,7 +12,6 @@ class myGet: public request
 		~myGet();
 		void		brain(const std::string& status_n_msg, std::ifstream& file);
 		void		doTheThing();
-		std::string	getFileToOpen();
 		bool		makeTheCheck();
 };
 
