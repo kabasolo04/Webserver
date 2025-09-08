@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>POST tester</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#222; color:#eee; display:flex; align-items:center; justify-content:center; height:100vh; }
+    .card { background:#333; padding:20px; border-radius:8px; width:380px; }
+    label { display:block; margin:8px 0 4px; }
+    input, button { width:100%; padding:8px; margin-bottom:10px; }
+    small { color:#bbb; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h3>POST tester</h3>
+
+    <!-- Simple URL-encoded form -->
+    <form id="form-url" action="/" method="post">
+      <small>Standard form (application/x-www-form-urlencoded)</small>
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" value="Alice" required>
+
+      <label for="age">Age</label>
+      <input id="age" name="age" type="text" value="25" required>
+
+      <button type="submit">Send form (POST)</button>
+    </form>
+
+    <hr style="border-color:#444">
+
+    <!-- File upload (multipart/form-data) -->
+    <form id="form-file" action="/upload" method="post" enctype="multipart/form-data">
+      <small>File upload (multipart/form-data)</small>
+      <label for="file">Choose a file (png/jpg)</label>
+      <input id="file" name="file" type="file">
+
+      <button type="submit">Upload file</button>
+    </form>
+
+    <hr style="border-color:#444">
+
+    <!-- JS fetch JSON -->
+    <div>
+      <small>Send JSON with fetch (application/json)</small>
+      <label for="jsonName">Name (JSON)</label>
+      <input id="jsonName" type="text" value="Bob">
+
+      <button id="sendJson">Send JSON POST to /json</button>
+      <p id="jsonResult" style="font-size:0.9em"></p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('sendJson').addEventListener('click', function () {
+      var name = document.getElementById('jsonName').value;
+      var payload = { name: name, ts: Date.now() };
+
+      fetch('/json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function (res) {
+        return res.text().then(function (t) { return { status: res.status, text: t }; });
+      })
+      .then(function (r) {
+        document.getElementById('jsonResult').textContent = 'Status: ' + r.status + ' — Response: ' + r.text;
+      })
+      .catch(function (err) {
+        document.getElementById('jsonResult').textContent = 'Error: ' + err.message;
+      });
+    });
+  </script>
+</body>
+</html>

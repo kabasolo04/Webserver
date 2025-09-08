@@ -8,7 +8,7 @@ request::~request() {}
 
 void	request::readFd()
 {
-	char buffer[100];
+	char buffer[BUFFER];
 
 	ssize_t len = read(_fd, buffer, sizeof(buffer));
 
@@ -52,6 +52,8 @@ void	request::getReqLineVars()
 /* Gets the header variables and puts them into a map */
 void		request::getHeaderVars()
 {
+	getReqLineVars();
+
 	size_t header_start = _buffer.find("\r\n");
 	if (header_start == std::string::npos)
 		throw std::runtime_error("Invalid request: missing CRLF after request line");

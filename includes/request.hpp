@@ -2,7 +2,7 @@
 
 #include "WebServer.hpp"
 
-#define MAX_HEADER_SIZE = 8192
+#define BUFFER 100
 
 class request
 {

@@ -18,6 +18,8 @@ class myGet: public request
 class myPost: public request
 {
 	private:
+		bool	_headerCheck;
+
 		myPost();
 
 	public:

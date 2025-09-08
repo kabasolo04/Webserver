@@ -29,18 +29,18 @@ void		myGet::brain(const std::string& status_n_msg, std::ifstream& file)
 
 void		myGet::doTheThing()
 {
-	getReqLineVars();
-	getHeaderVars();
 	std::ifstream	file;
+
 	if (_path == "/")
 		file.open("./www/index.html");
 	else
-		file.open(_path.c_str());
+		file.open(("." + _path + "/index.html").c_str());
 
 	if (!file.is_open())
 	{
 		file.open("./www/404.html");
 		brain("404 NOT FOUND", file);
+		//throw
 		return ;
 	}
 	brain("200 OK", file);
@@ -48,26 +48,57 @@ void		myGet::doTheThing()
 
 bool	myGet::makeTheCheck()
 {
-	return _buffer.find("\r\n\r\n") != std::string::npos;
+	if (_buffer.find("\r\n\r\n") != std::string::npos)
+	{
+		return (getHeaderVars(), 1);
+	}
+	return 0;
 }
 
 //---------------------------------------------------------------------------//
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(int fd, std::string buffer): request(fd, buffer) {}
+myPost::myPost(int fd, std::string buffer): request(fd, buffer), _headerCheck(0) {}
 
 myPost::~myPost() {}
 
 void	myPost::doTheThing()
 {
-
+	std::cout << _buffer << std::endl;
 }
 
 bool	myPost::makeTheCheck()
 {
-	return true;
-	
+	if (!_headerCheck)
+	{
+		std::cout << "no emo leido" << std::endl;
+		const long unsigned int it = _buffer.find("\r\n\r\n");
+		if (it != std::string::npos)
+		{
+			getHeaderVars();
+			_headerCheck = 1;
+			_buffer.erase(0, it + 4);
+		}
+	}
+	else
+	{
+		if (_headers.find("Content-Length") == _headers.end())
+		{
+			std::cout << "GITANOOOOOOOO" << std::endl;
+			//throw
+		}
+		else
+		{
+			std::stringstream ss(_headers["Content-Length"]);
+			long unsigned int len = 0;
+
+			ss >> len;
+
+			return (_buffer.length() >= len);
+		}
+	}
+	return (0);
 }
 
 //---------------------------------------------------------------------------//
@@ -85,5 +116,9 @@ void	myDelete::doTheThing()
 
 bool	myDelete::makeTheCheck()
 {
-	return _buffer.find("\r\n\r\n") != std::string::npos;
+	if (_buffer.find("\r\n\r\n") != std::string::npos)
+	{
+		return (getHeaderVars(), 1);
+	}
+	return 0;
 }

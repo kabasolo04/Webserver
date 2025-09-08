@@ -20,7 +20,7 @@ void myAccept(int epfd)
 				break;
 			}
 		}
-		//setNonBlocking(client_fd);
+		setNonBlocking(client_fd);
 		struct epoll_event client_event;
 		memset(&client_event, 0, sizeof(client_event));
 		client_event.data.fd = client_fd;
