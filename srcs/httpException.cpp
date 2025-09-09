@@ -1,20 +1,20 @@
 #include "WebServer.hpp"
 
-HttpException::HttpException(int code, const std::string& message): _statusCode(code), _message(message)
+httpException::httpException(int code, const std::string& message): _statusCode(code), _message(message)
 {		
     std::stringstream ss;
 	ss << "HTTP " << _statusCode << " - " << _message;
 	_fullMessage = ss.str();
 }
 
-int HttpException::code() const throw() {
+int httpException::code() const throw() {
 	return _statusCode;
 }
 
-const std::string& HttpException::message() const throw() {
+const std::string& httpException::message() const throw() {
 	return _message;
 }
 
-const char* HttpException::what() const throw() {
+const char* httpException::what() const throw() {
 	return _fullMessage.c_str();
 }

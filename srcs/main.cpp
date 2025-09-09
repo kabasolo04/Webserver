@@ -37,8 +37,6 @@ int main()
 		conf::setConfig("Filename");
 //	}
 
-	//char read_buffer[10 + 1];
-	
 	int epfd = epoll_create1(0);
 	if (epfd == -1) {
 		perror("epoll_create1");
@@ -55,7 +53,7 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-//	setNonBlocking(epfd);
+	setNonBlocking(epfd);
 
 	struct epoll_event	events[5];
 

@@ -8,17 +8,20 @@ myGet::myGet(int fd, std::string buffer) : request(fd, buffer) {}
 
 myGet::~myGet() {}
 
-void myGet::brain(const std::string &status_n_msg, std::ifstream &file)
+void myGet::response(std::ifstream &file)
 {
 	std::string line;
 	std::string buffer;
 	std::ostringstream oss;
 
+	//if (_headers.find("Content-Type") == _headers.end())
+		//throw httpException(BAD_REQUEST);
+
 	buffer = "";
 	while (std::getline(file, line))
 		buffer += line;
-	oss << "HTTP/1.1 " << status_n_msg << " \r\n";
-	oss << "Content-Type: text/html\r\n";
+	oss << "HTTP/1.1 " << "200 OK" << " \r\n";
+	oss << "Content-Type: " << "text/html" << "\r\n";
 	oss << "Content-Length: " << buffer.size() << "\r\n";
 	oss << "Connection: close\r\n";
 	oss << "\r\n";
@@ -27,7 +30,7 @@ void myGet::brain(const std::string &status_n_msg, std::ifstream &file)
 	write(_fd, response.c_str(), response.size());
 }
 
-void	myGet::doTheThing()
+void	myGet::process()
 {
 	std::ifstream file;
 	std::string fullPath = "./www" + _path;
@@ -39,21 +42,15 @@ void	myGet::doTheThing()
 	{
 		file.open(fullPath.c_str());
 		if (file.is_open())
-			brain("200 OK", file);
+			response(file);
 		else
-		{
-			file.open("./www/404.html");
-			brain("404 NOT FOUND", file);
-		}
+			throw httpException(NOT_FOUND);
 	}
 	else
-	{
-		file.open("./www/404.html");
-		brain("404 NOT FOUND", file);
-	}
+		throw httpException(NOT_FOUND);
 }
 
-bool myGet::makeTheCheck()
+bool myGet::check()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 	{
@@ -70,16 +67,15 @@ myPost::myPost(int fd, std::string buffer) : request(fd, buffer), _headerCheck(0
 
 myPost::~myPost() {}
 
-void myPost::doTheThing()
+void myPost::process()
 {
 	std::cout << _buffer << std::endl;
 }
 
-bool myPost::makeTheCheck()
+bool myPost::check()
 {
 	if (!_headerCheck)
 	{
-		std::cout << "no emo leido" << std::endl;
 		const long unsigned int it = _buffer.find("\r\n\r\n");
 		if (it != std::string::npos)
 		{
@@ -91,10 +87,7 @@ bool myPost::makeTheCheck()
 	else
 	{
 		if (_headers.find("Content-Length") == _headers.end())
-		{
-			std::cout << "GITANOOOOOOOO" << std::endl;
-			// throw
-		}
+			throw httpException(BAD_REQUEST);
 		else
 		{
 			std::stringstream ss(_headers["Content-Length"]);
@@ -116,11 +109,11 @@ myDelete::myDelete(int fd, std::string buffer) : request(fd, buffer) {}
 
 myDelete::~myDelete() {}
 
-void myDelete::doTheThing()
+void myDelete::process()
 {
 }
 
-bool myDelete::makeTheCheck()
+bool myDelete::check()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 	{

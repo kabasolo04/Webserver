@@ -19,30 +19,29 @@ request*	createMethod(int fd)
 	ssize_t len = read(fd, buffer, sizeof(buffer));
 
 	if (len <= 0)
-		throw std::runtime_error("Null request");
+		throw httpException(BAD_REQUEST);
 	std::string raw(buffer);
 	size_t pos = raw.find(' ');
 	if (pos == std::string::npos)
-		throw std::runtime_error("Invalid request: no space found");
+		throw httpException(BAD_REQUEST);
 
 	std::string method = raw.substr(0, pos);
 	std::string rest = raw.substr(pos + 1); // everything after the space
 	if (!conf::methodAllowed(method))
-		throw std::runtime_error("Unavailable method: " + method);
+		throw httpException(METHOD_NOT_ALLOWED);
 	if (method == "GET")
 		return new myGet(fd, rest);
 	if (method == "POST")
 		return new myPost(fd, rest);
 	if (method == "DELETE")
 		return new myDelete(fd, rest);
-	throw std::runtime_error("Invalid request");
+	throw httpException(METHOD_NOT_ALLOWED);
 }
 
 void	requestHandler::addReq(int fd)
 {
 	delReq(fd);
 	_requests[fd] = createMethod(fd);
-	//_requests[fd] = new myGet(fd, "Mujejeej");
 }
 
 void	requestHandler::readReq(int fd)
@@ -58,21 +57,26 @@ void	requestHandler::readReq(int fd)
 		it->second->readSocket();
 		if (it->second->finished())
 		{
-			it->second->doTheThing();
+			it->second->process();
 			delReq(fd);
 		}
 	}
-	catch(const HttpException& e)
+	catch(const httpException& e)
 	{
-		std::cerr << "Error: " << e.what() << std::endl;
+		//std::cerr << "Error: " << e.what() << std::endl;
 
 		std::stringstream response;
 		response << "HTTP/1.1 " << e.code() << " " << e.message().c_str() << "\r\n"
 				<< "Content-Type: text/plain\r\n"
 				<< "Content-Length: " << e.message().size() << "\r\n\r\n"
 				<< e.message();
-
-		send(fd, response.str().c_str(), response.str().size(), 0);
+		write(fd, response.str().c_str(), response.str().size());
 		delReq(fd);
 	}
+//	catch(const otherException& e)
+//	{
+//		epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // <-- Step 1
+//		close(client_fd);
+//		delReq(fd);
+//	}
 }

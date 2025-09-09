@@ -12,17 +12,20 @@ void	request::readFd()
 
 	ssize_t len = read(_fd, buffer, sizeof(buffer));
 
-	if (len > 0)
+	if (len < 0)
+	{
+		//throw 
+	}
+	if (len >= 0)
 	{
 		_buffer.append(buffer, len);
-		//std::cout << _buffer << std::endl;
 	}
 }
 
 void	request::readSocket()
 {
 	readFd();
-	if (makeTheCheck())
+	if (check())
 		_finished = 1;
 }
 
@@ -39,12 +42,12 @@ void	request::getReqLineVars()
 	size_t		pos = buffer.find(' ');
 
 	if (pos == std::string::npos)
-		throw std::runtime_error("Invalid request: no space found");
+		throw httpException(BAD_REQUEST);
 	while (buffer[++i] != ' ')
 		_path += buffer[i];
 	pos = buffer.find("\r\n");
 	if (pos == std::string::npos)
-		throw std::runtime_error("Invalid request: no jump found");
+		throw httpException(BAD_REQUEST);
 	std::string _protocol = buffer.substr(i + 1, pos - (i + 1));
 }
 
@@ -56,7 +59,7 @@ void		request::getHeaderVars()
 
 	size_t header_start = _buffer.find("\r\n");
 	if (header_start == std::string::npos)
-		throw std::runtime_error("Invalid request: missing CRLF after request line");
+		throw httpException(BAD_REQUEST);
 	header_start += 2;
 	size_t header_end;
 
@@ -66,16 +69,16 @@ void		request::getHeaderVars()
 			break;
 
 		if (header_end - header_start > conf::headerSize())
-			throw std::runtime_error("Invalid request: header line too long");
+			throw httpException(BAD_REQUEST);
 
 		std::string line = _buffer.substr(header_start, header_end - header_start);
 		size_t colon = line.find(":");
 		if (colon == std::string::npos)
-			throw std::runtime_error("Invalid header: missing ':'");
+			throw httpException(BAD_REQUEST);
 		std::string key = line.substr(0, colon);
 		std::string value = line.substr(colon + 1);
 		if (key.empty())
-			throw std::runtime_error("Invalid header: empty key");
+			throw httpException(BAD_REQUEST);
 		if (!value.empty() && value[0] == ' ')
 			value.erase(0, 1); //remove space
 
@@ -83,6 +86,6 @@ void		request::getHeaderVars()
 		header_start = header_end + 2;
 	}
 	if (_headers.find("Host") == _headers.end())
-		throw std::runtime_error("Invalid request: missing Host header");
+		throw httpException(BAD_REQUEST);
 	//std::cout << "Host=" << _headers["Host"] << std::endl;
 }
