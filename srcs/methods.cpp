@@ -4,15 +4,15 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(int fd, std::string buffer): request(fd, buffer) {}
+myGet::myGet(int fd, std::string buffer) : request(fd, buffer) {}
 
 myGet::~myGet() {}
 
-void		myGet::brain(const std::string& status_n_msg, std::ifstream& file)
+void myGet::brain(const std::string &status_n_msg, std::ifstream &file)
 {
-	std::string		line;
-	std::string		buffer;
-	std::ostringstream	oss;
+	std::string line;
+	std::string buffer;
+	std::ostringstream oss;
 
 	buffer = "";
 	while (std::getline(file, line))
@@ -22,33 +22,38 @@ void		myGet::brain(const std::string& status_n_msg, std::ifstream& file)
 	oss << "Content-Length: " << buffer.size() << "\r\n";
 	oss << "Connection: close\r\n";
 	oss << "\r\n";
-	oss << buffer;
+	oss << buffer;	
 	std::string response = oss.str();
 	write(_fd, response.c_str(), response.size());
 }
 
-void		myGet::doTheThing()
+void	myGet::doTheThing()
 {
-	std::ifstream	file;
+	std::ifstream file;
+	std::string fullPath = "./www" + _path;
 
-	std::cout << "Gitanos: " << _path << std::endl;
+	if (is_directory(fullPath))
+		fullPath += "/index.html";
 
-	if (_path == "/")
-		file.open("./www/index.html");
+	if (is_file(fullPath))
+	{
+		file.open(fullPath.c_str());
+		if (file.is_open())
+			brain("200 OK", file);
+		else
+		{
+			file.open("./www/404.html");
+			brain("404 NOT FOUND", file);
+		}
+	}
 	else
-		file.open(("./www/" + _path + "/index.html").c_str());
-
-	if (!file.is_open())
 	{
 		file.open("./www/404.html");
 		brain("404 NOT FOUND", file);
-		//throw
-		return ;
 	}
-	brain("200 OK", file);
 }
 
-bool	myGet::makeTheCheck()
+bool myGet::makeTheCheck()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 	{
@@ -61,16 +66,16 @@ bool	myGet::makeTheCheck()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(int fd, std::string buffer): request(fd, buffer), _headerCheck(0) {}
+myPost::myPost(int fd, std::string buffer) : request(fd, buffer), _headerCheck(0) {}
 
 myPost::~myPost() {}
 
-void	myPost::doTheThing()
+void myPost::doTheThing()
 {
 	std::cout << _buffer << std::endl;
 }
 
-bool	myPost::makeTheCheck()
+bool myPost::makeTheCheck()
 {
 	if (!_headerCheck)
 	{
@@ -88,7 +93,7 @@ bool	myPost::makeTheCheck()
 		if (_headers.find("Content-Length") == _headers.end())
 		{
 			std::cout << "GITANOOOOOOOO" << std::endl;
-			//throw
+			// throw
 		}
 		else
 		{
@@ -107,16 +112,15 @@ bool	myPost::makeTheCheck()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(int fd, std::string buffer): request(fd, buffer) {}
+myDelete::myDelete(int fd, std::string buffer) : request(fd, buffer) {}
 
 myDelete::~myDelete() {}
 
-void	myDelete::doTheThing()
+void myDelete::doTheThing()
 {
-
 }
 
-bool	myDelete::makeTheCheck()
+bool myDelete::makeTheCheck()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 	{
