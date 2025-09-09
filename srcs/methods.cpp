@@ -34,7 +34,7 @@ void		myGet::doTheThing()
 	if (_path == "/")
 		file.open("./www/index.html");
 	else
-		file.open(("." + _path + "/index.html").c_str());
+		file.open(("./www/" + _path + "/index.html").c_str());
 
 	if (!file.is_open())
 	{
