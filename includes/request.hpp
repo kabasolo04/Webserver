@@ -2,7 +2,7 @@
 
 #include "WebServer.hpp"
 
-#define BUFFER 100
+#define BUFFER 4096
 
 class request
 {
@@ -12,6 +12,9 @@ class request
 		std::string							_path;
 		std::string							_protocol;
 		std::map<std::string, std::string>	_headers;
+
+		int									_status;
+		std::string							_errorMessage;
 		
 	private:
 		bool			_finished;

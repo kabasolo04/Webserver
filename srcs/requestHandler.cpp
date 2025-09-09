@@ -47,14 +47,14 @@ void	requestHandler::addReq(int fd)
 
 void	requestHandler::readReq(int fd)
 {
-	std::map<int, request*>::iterator it = _requests.find(fd);
-	if (it == _requests.end())
-	{
-		addReq(fd);
-		it = _requests.find(fd);
-	}
 	try
 	{
+		std::map<int, request*>::iterator it = _requests.find(fd);
+		if (it == _requests.end())
+		{
+			addReq(fd);
+			it = _requests.find(fd);
+		}
 		it->second->readSocket();
 		if (it->second->finished())
 		{
@@ -62,11 +62,17 @@ void	requestHandler::readReq(int fd)
 			delReq(fd);
 		}
 	}
-	catch(const std::exception& e)
+	catch(const HttpException& e)
 	{
-		//generation of errors
-		//error::createResponse(it->second);
-		//delResp()
-		std::cerr << e.what() << '\n';
+		std::cerr << "Error: " << e.what() << std::endl;
+
+		std::stringstream response;
+		response << "HTTP/1.1 " << e.code() << " " << e.message().c_str() << "\r\n"
+				<< "Content-Type: text/plain\r\n"
+				<< "Content-Length: " << e.message().size() << "\r\n\r\n"
+				<< e.message();
+
+		send(fd, response.str().c_str(), response.str().size(), 0);
+		delReq(fd);
 	}
 }

@@ -27,9 +27,11 @@
 #include <dirent.h>       // for opendir, readdir, closedir
 
 #include <sstream> 
-#include <fstream> 
+#include <fstream>
+#include <exception>
 
 #include "conf.hpp"
+#include "httpException.hpp"
 #include "request.hpp"
 #include "requestHandler.hpp"
 #include "methods.hpp"
