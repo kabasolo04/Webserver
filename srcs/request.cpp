@@ -37,18 +37,14 @@ bool	request::finished()
 /* Gets the path and the protocol version from the request line */
 void	request::getReqLineVars()
 {
-	std::string	buffer = _buffer;
-	size_t		i = -1;
-	size_t		pos = buffer.find(' ');
+	std::string method, path, protocol;
+	std::istringstream iss(_buffer);
 
-	if (pos == std::string::npos)
+	// Read three tokens: METHOD, PATH, PROTOCOL
+	if (!(iss >> method >> path >> protocol))
 		throw httpException(BAD_REQUEST);
-	while (buffer[++i] != ' ')
-		_path += buffer[i];
-	pos = buffer.find("\r\n");
-	if (pos == std::string::npos)
-		throw httpException(BAD_REQUEST);
-	std::string _protocol = buffer.substr(i + 1, pos - (i + 1));
+	_path = path;
+	_protocol = protocol;
 }
 
 

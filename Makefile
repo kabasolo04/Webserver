@@ -3,7 +3,7 @@ CXX := c++
 CXXFLAGS := -Wall -Wextra -Werror -std=c++98 -g3 -I includes
 
 # Project name
-NAME := webserver
+NAME := webserv
 
 # Directories
 SRC_DIR := srcs

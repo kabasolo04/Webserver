@@ -28,15 +28,14 @@ request*	createMethod(int fd)
 		throw httpException(BAD_REQUEST);
 
 	std::string method = raw.substr(0, pos);
-	std::string rest = raw.substr(pos + 1); // everything after the space
 	if (!conf::methodAllowed(method))
 		throw httpException(METHOD_NOT_ALLOWED);
 	if (method == "GET")
-		return new myGet(fd, rest);
+		return new myGet(fd, raw);
 	if (method == "POST")
-		return new myPost(fd, rest);
+		return new myPost(fd, raw);
 	if (method == "DELETE")
-		return new myDelete(fd, rest);
+		return new myDelete(fd, raw);
 	throw httpException(METHOD_NOT_ALLOWED);
 }
 
