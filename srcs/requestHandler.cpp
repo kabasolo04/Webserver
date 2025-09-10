@@ -65,14 +65,8 @@ void	requestHandler::readReq(int fd)
 	}
 	catch(const httpException& e)
 	{
-		//std::cerr << "Error: " << e.what() << std::endl;
-
-		std::stringstream response;
-		response << "HTTP/1.1 " << e.code() << " " << e.message().c_str() << "\r\n"
-				<< "Content-Type: text/plain\r\n"
-				<< "Content-Length: " << e.message().size() << "\r\n\r\n"
-				<< e.message();
-		write(fd, response.str().c_str(), response.str().size());
+//		std::string	res = buildResponse(e.code(), getReasonPhrase(e.code()), "text/plain");
+		write(fd, res.c_str(), res.size());
 		delReq(fd);
 	}
 	catch (const std::exception &e)

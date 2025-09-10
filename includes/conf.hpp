@@ -19,10 +19,15 @@ class conf
 
 		static std::vector<std::string>	_methods;
 
+		static int						_epfd;
+		static epoll_event				_event;
+		static epoll_event				_events[5];
+
 		conf();
 	
 	public:
 		static void	setConfig(std::string filename);
+		static void setEpoll();
 
 		static const bool&			autoindex();
 
@@ -36,7 +41,8 @@ class conf
 		static const std::string&	index();
 		static const std::string&	serverName();
 
-		static bool	methodAllowed(std::string method);
-};
+		static bool					methodAllowed(std::string method);
 
-int		setNonBlocking(int fd);
+		static const int&			epfd();
+		static const epoll_event&	event();
+};
