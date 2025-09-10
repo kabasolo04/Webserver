@@ -14,19 +14,14 @@ void myGet::response(std::ifstream &file)
 	std::string buffer;
 	std::ostringstream oss;
 
-	//if (_headers.find("Content-Type") == _headers.end())
-		//throw httpException(BAD_REQUEST);
+	//this->printHeaders();
+	if (_headers.find("Sec-Fetch-Dest") == _headers.end())
+		throw httpException(BAD_REQUEST);
 
 	buffer = "";
 	while (std::getline(file, line))
 		buffer += line;
-	oss << "HTTP/1.1 " << "200 OK" << " \r\n";
-	oss << "Content-Type: " << "text/html" << "\r\n";
-	oss << "Content-Length: " << buffer.size() << "\r\n";
-	oss << "Connection: close\r\n";
-	oss << "\r\n";
-	oss << buffer;	
-	std::string response = oss.str();
+	std::string response = buildResponse(OK, buffer, "text/html");
 	write(_fd, response.c_str(), response.size());
 }
 

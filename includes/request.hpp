@@ -33,6 +33,7 @@ class request
 		bool		finished();
 		void		getReqLineVars();
 		void		getHeaderVars();
+		void		printHeaders();
 };
 	
 	/*
