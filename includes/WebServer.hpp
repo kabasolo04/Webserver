@@ -32,9 +32,9 @@
 
 #include "conf.hpp"
 #include "httpException.hpp"
+#include "utils.hpp"
 #include "request.hpp"
 #include "requestHandler.hpp"
 #include "methods.hpp"
-#include "utils.hpp"
 
 //#include "factory.hpp"

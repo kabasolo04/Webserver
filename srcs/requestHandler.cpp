@@ -65,7 +65,10 @@ void	requestHandler::readReq(int fd)
 	}
 	catch(const httpException& e)
 	{
-//		std::string	res = buildResponse(e.code(), getReasonPhrase(e.code()), "text/plain");
+		std::ostringstream oss;
+		oss << "<h1>" << e.code() << " " << getReasonPhrase(e.code()) << "</h1>";
+
+		std::string	res = buildResponse(e.code(), oss.str(), "text/html");
 		write(fd, res.c_str(), res.size());
 		delReq(fd);
 	}

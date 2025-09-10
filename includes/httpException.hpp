@@ -1,23 +1,27 @@
 #pragma once
 
+enum StatusCode
+{
+	OK = 200,
+	BAD_REQUEST = 400,
+	NOT_FOUND = 404,
+	INTERNAL_SERVER_ERROR = 500,
+	FORBIDEN = 403,
+	METHOD_NOT_ALLOWED = 405,
+	LOL = 700
+
+}; //Whenever a code is added you must also add it in utils.cpp - getReasonPhrase()
+
 #include "WebServer.hpp"
 
 class httpException : public std::exception
 {
 	private:
-		int			_statusCode;
+		StatusCode	_statusCode;
 
 	public:
-		httpException(int code);
+		httpException(StatusCode code);
 		virtual ~httpException() throw() {}
 
-		int code() const throw();
+		StatusCode code() const throw();
 };
-
-#define	OK					200
-#define	BAD_REQUEST			400
-#define	NOT_FOUND			404
-#define	FORBIDEN			403
-#define METHOD_NOT_ALLOWED	405
-#define	INTERNAL_ERROR		500
-#define LOL					777
