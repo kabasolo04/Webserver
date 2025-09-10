@@ -18,8 +18,10 @@ request*	createMethod(int fd)
 	char buffer[7];
 	ssize_t len = read(fd, buffer, sizeof(buffer));
 
-	if (len <= 0)
-		throw httpException(BAD_REQUEST);
+	if (len < 0)
+		throw std::runtime_error("Read Error");
+	if (len == 0)
+		throw std::runtime_error("Client Disconnected");
 	std::string raw(buffer);
 	size_t pos = raw.find(' ');
 	if (pos == std::string::npos)
@@ -73,10 +75,11 @@ void	requestHandler::readReq(int fd)
 		write(fd, response.str().c_str(), response.str().size());
 		delReq(fd);
 	}
-//	catch(const otherException& e)
-//	{
-//		epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // <-- Step 1
-//		close(client_fd);
-//		delReq(fd);
-//	}
+	catch (const std::exception &e)
+	{
+		std::cerr << e.what() << std::endl;
+		epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
+		close(fd);
+		delReq(fd);
+	}
 }

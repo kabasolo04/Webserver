@@ -13,9 +13,9 @@ void	request::readFd()
 	ssize_t len = read(_fd, buffer, sizeof(buffer));
 
 	if (len < 0)
-	{
-		//throw 
-	}
+		throw std::runtime_error("Read Error");
+	if (len == 0)
+		throw std::runtime_error("Client Disconnected");
 	if (len >= 0)
 	{
 		_buffer.append(buffer, len);

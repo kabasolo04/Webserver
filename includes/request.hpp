@@ -2,7 +2,7 @@
 
 #include "WebServer.hpp"
 
-#define BUFFER 4096
+#define BUFFER 1
 
 class request
 {

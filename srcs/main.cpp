@@ -35,6 +35,12 @@ int main()
 //		return (0);
 //	try {
 		conf::setConfig("Filename");
+//		conf::setEpoll();
+//	}
+//	catch(const std::exception &e)
+//	{
+//		std::cerr << "Standard exception caught: " << e.what() << std::endl;
+//		return (1);
 //	}
 
 	int epfd = epoll_create1(0);
@@ -53,7 +59,7 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	setNonBlocking(epfd);
+	//setNonBlocking(epfd);
 
 	struct epoll_event	events[5];
 
@@ -69,6 +75,5 @@ int main()
 			else
 				requestHandler::readReq(fd);
 		}
-		usleep(100000);
 	}
 }

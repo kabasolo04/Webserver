@@ -21,16 +21,14 @@ std::vector<std::string> conf::_methods;
 int	createServer(int port)
 {
 	int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-	if (listenFd < 0) {
-		std::cerr << "socket failed: " << strerror(errno) << "\n";
-		return -1;
-	}
+	if (listenFd < 0)
+		throw std::runtime_error("Socket failed | conf.cpp - createServer()");
 
 	int yes = 1;
-	if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
-		std::cerr << "setsockopt failed: " << strerror(errno) << "\n";
+	if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
+	{
 		close(listenFd);
-		return -1;
+		throw std::runtime_error("Setsockopt failed | conf.cpp - createServer()");
 	}
 
 	struct sockaddr_in addr;
@@ -39,30 +37,30 @@ int	createServer(int port)
 	addr.sin_addr.s_addr = INADDR_ANY; // bind to all interfaces
 	addr.sin_port = htons(port);
 
-	if (bind(listenFd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-		std::cerr << "bind failed: " << strerror(errno) << "\n";
+	if (bind(listenFd, (sockaddr*)&addr, sizeof(addr)) < 0)
+	{
 		close(listenFd);
-		return -1;
+		throw std::runtime_error("Bind failed | conf.cpp - createServer()");
 	}
 
-	if (listen(listenFd, SOMAXCONN) < 0) {
-		std::cerr << "listen failed: " << strerror(errno) << "\n";
+	if (listen(listenFd, SOMAXCONN) < 0)
+	{
 		close(listenFd);
-		return -1;
+		throw std::runtime_error("Listen failed | conf.cpp - createServer()");
 	}
 	return listenFd;
 }
 
 int setNonBlocking(int fd)
 {
-    int old_option = fcntl(fd, F_GETFL);
-    int new_option = old_option | O_NONBLOCK;
+	int old_option = fcntl(fd, F_GETFL);
+	int new_option = old_option | O_NONBLOCK;
 
-    if (old_option == -1)
-        return -1;
-    if (fcntl(fd, F_SETFL, new_option) == -1)
-        return -1;
-    return 0;  // <-- returns 0 on success?
+	if (old_option == -1)
+		throw std::runtime_error("fctnl() failed | conf.cpp - setNonBlocking()");
+	if (fcntl(fd, F_SETFL, new_option) == -1)
+		throw std::runtime_error("fctnl() failed | conf.cpp - setNonBlocking()");
+	return 1; 
 }
 
 void	conf::setConfig(std::string filename)
