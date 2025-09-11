@@ -14,28 +14,25 @@ void myGet::response(std::ifstream &file)
 	std::string buffer;
 	std::ostringstream oss;
 
-	//this->printHeaders();
-	if (_headers.find("Sec-Fetch-Dest") == _headers.end())
-		throw httpException(BAD_REQUEST);
+	this->printHeaders();
 
-	buffer = "";
-	while (std::getline(file, line))
-		buffer += line;
-	std::string response = buildResponse(OK, buffer, "text/html");
+	oss << file.rdbuf(); // reads raw bytes into oss
+	buffer = oss.str();
+	std::string response = buildResponse(OK, buffer, getMimeType(_path));
 	write(_fd, response.c_str(), response.size());
 }
 
 void	myGet::process()
 {
 	std::ifstream file;
-	std::string fullPath = "./www" + _path;
+	_path = conf::root() + _path;
 
-	if (is_directory(fullPath))
-		fullPath += "/index.html";
+	if (is_directory(_path))
+		_path += "/index.html";
 
-	if (is_file(fullPath))
+	if (is_file(_path))
 	{
-		file.open(fullPath.c_str());
+		file.open(_path.c_str());
 		if (file.is_open())
 			response(file);
 		else

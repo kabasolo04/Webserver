@@ -88,6 +88,7 @@ void		request::getHeaderVars()
 void	request::printHeaders()
 {
 	std::cout << "===HEADERS===" << std::endl;
+	std::cout << "Path: " << _path << std::endl;
 	std::map<std::string, std::string>::iterator it;
 	for (it = _headers.begin(); it != _headers.end(); ++it)
 		std::cout << it->first << ": " << it->second << std::endl;

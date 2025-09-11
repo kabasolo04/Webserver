@@ -31,7 +31,7 @@ std::string getReasonPhrase(StatusCode code)
 	}
 }
 
-std::string buildResponse(StatusCode code, const std::string& body, const std::string& contentType = "text/html")
+std::string buildResponse(StatusCode code, const std::string& body, const std::string& contentType)
 {
 	std::ostringstream oss;
 	oss << "HTTP/1.1 " << code << " " << getReasonPhrase(code) << "\r\n";
@@ -39,6 +39,25 @@ std::string buildResponse(StatusCode code, const std::string& body, const std::s
 	oss << "Content-Length: " << body.size() << "\r\n";
 	oss << "Connection: close\r\n";
 	oss << "\r\n";
-	oss << body;
-	return oss.str();
+	
+	std::string response = oss.str();
+	response.append(body);
+	return response;
+}
+
+std::string getMimeType(const std::string &path)
+{
+	size_t dot = path.find_last_of('.');
+	if (dot == std::string::npos) return "application/octet-stream";
+	std::string ext = path.substr(dot + 1);
+
+	if (ext == "html" || ext == "htm") return "text/html";
+	if (ext == "css") return "text/css";
+	if (ext == "js") return "application/javascript";
+	if (ext == "png") return "image/png";
+	if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+	if (ext == "gif") return "image/gif";
+	if (ext == "json") return "application/json";
+
+	return "application/octet-stream";
 }
