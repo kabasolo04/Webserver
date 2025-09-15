@@ -12,6 +12,7 @@ class request
 		std::string							_path;
 		std::string							_protocol;
 		std::map<std::string, std::string>	_headers;
+		std::string							_body;
 
 		int									_status;
 		std::string							_errorMessage;
@@ -25,7 +26,7 @@ class request
 	public:
 		request(int fd, std::string buffer);
 		virtual ~request();
-		
+	
 		virtual void	process() = 0;
 		virtual bool	check() = 0;
 		

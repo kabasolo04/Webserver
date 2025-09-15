@@ -8,3 +8,4 @@ int				setNonBlocking(int fd);
 std::string		getReasonPhrase(StatusCode code);
 std::string		buildResponse(StatusCode code, const std::string& body, const std::string& contentType);
 std::string		getMimeType(const std::string &path);
+void			saveFile(const std::string &part);

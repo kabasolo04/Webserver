@@ -27,6 +27,8 @@ class myPost: public request
 		~myPost();
 		void		process();
 		bool		check();
+		bool		chunkedCheck();
+		void		handleMultipart();
 };
 
 class myDelete: public request
