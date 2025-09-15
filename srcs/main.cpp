@@ -1,4 +1,5 @@
 #include "WebServer.hpp"
+#include "setConf.hpp"
 
 void myAccept(int epfd)
 {
@@ -16,11 +17,11 @@ void myAccept(int epfd)
 			}
 			else
 			{
-				perror("accept");
+				std::cout << "Error: Accept | main.cpp - myAccept()" << std::endl;
+				//perror("accept"); // something went wrong but we continue, this is a extrange error
 				break;
 			}
 		}
-		setNonBlocking(client_fd);
 		struct epoll_event client_event;
 		memset(&client_event, 0, sizeof(client_event));
 		client_event.data.fd = client_fd;
@@ -29,49 +30,34 @@ void myAccept(int epfd)
 	}
 }
 
-int main()
+int main(int argc, char **argv)
 {
-//	if (argc != 2)
-//		return (0);
-//	try {
-		conf::setConfig("Filename");
-//		conf::setEpoll();
-//	}
-//	catch(const std::exception &e)
-//	{
-//		std::cerr << "Standard exception caught: " << e.what() << std::endl;
-//		return (1);
-//	}
+	if (argc != 2)
+		return (std::cerr << "Error: './webserv /config/file/path' | main.cpp - main()" << std::endl, 0);
 
-	int epfd = epoll_create1(0);
-	if (epfd == -1) {
-		perror("epoll_create1");
-		exit(EXIT_FAILURE);
+	try
+	{
+		setConf::parseFile(argv[1]);
+		setConf::setServer();
+		setConf::setEpoll();
 	}
-
-	struct epoll_event	event;
-
-	event.events = EPOLLIN;			//only watching for input events
-	event.data.fd = conf::server();	//the fd its gonna watch
-
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, conf::server(), &event) == -1) {
-		perror("epoll_ctl: server_fd");
-		exit(EXIT_FAILURE);
+	catch(const std::exception &e)
+	{
+		std::cout << "Error: " << e.what() << std::endl;
+		return (1);
 	}
-
-	//setNonBlocking(epfd);
 
 	struct epoll_event	events[5];
 
 	while (1)
 	{
-		int n = epoll_wait(epfd, events, 5, 0);
+		int n = epoll_wait(conf::epfd(), events, 5, -1);
 		for (int i = 0; i < n; i++)
 		{
 			int fd = events[i].data.fd;
 
 			if (fd == conf::server())
-				myAccept(epfd);
+				myAccept(conf::epfd());
 			else
 				requestHandler::readReq(fd);
 		}

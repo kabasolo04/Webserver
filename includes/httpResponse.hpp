@@ -14,14 +14,20 @@ enum StatusCode
 
 #include "WebServer.hpp"
 
-class httpException : public std::exception
+class httpResponse: public std::exception
 {
 	private:
 		StatusCode	_statusCode;
+		std::string	_message;
+		std::string	_contentType;
+		std::string _body;
+
+		httpResponse();
 
 	public:
-		httpException(StatusCode code);
-		virtual ~httpException() throw() {}
+		httpResponse(StatusCode code);
+		httpResponse(const request* req);
+		virtual ~httpResponse() throw() {}
 
-		StatusCode code() const throw();
+		void sendResponse(int fd) const throw();
 };

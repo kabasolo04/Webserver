@@ -14,67 +14,12 @@ std::string	conf::_serverName = "myWeb";
 
 std::vector<std::string> conf::_methods;
 
+int			conf::_epfd;
+epoll_event	conf::_event;
+
 //-------------------------------------------------------------------------------------------------------//
 // All this default setting will only exists until the config file parsing exists and works as intended. //
 //-------------------------------------------------------------------------------------------------------//
-
-int	createServer(int port)
-{
-	int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-	if (listenFd < 0)
-		throw std::runtime_error("Socket failed | conf.cpp - createServer()");
-
-	int yes = 1;
-	if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
-	{
-		close(listenFd);
-		throw std::runtime_error("Setsockopt failed | conf.cpp - createServer()");
-	}
-
-	struct sockaddr_in addr;
-	//std::memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY; // bind to all interfaces
-	addr.sin_port = htons(port);
-
-	if (bind(listenFd, (sockaddr*)&addr, sizeof(addr)) < 0)
-	{
-		close(listenFd);
-		throw std::runtime_error("Bind failed | conf.cpp - createServer()");
-	}
-
-	if (listen(listenFd, SOMAXCONN) < 0)
-	{
-		close(listenFd);
-		throw std::runtime_error("Listen failed | conf.cpp - createServer()");
-	}
-	return listenFd;
-}
-
-int setNonBlocking(int fd)
-{
-	int old_option = fcntl(fd, F_GETFL);
-	int new_option = old_option | O_NONBLOCK;
-
-	if (old_option == -1)
-		throw std::runtime_error("fctnl() failed | conf.cpp - setNonBlocking()");
-	if (fcntl(fd, F_SETFL, new_option) == -1)
-		throw std::runtime_error("fctnl() failed | conf.cpp - setNonBlocking()");
-	return 1; 
-}
-
-void	conf::setConfig(std::string filename)
-{
-	_methods.push_back("GET");
-	_methods.push_back("POST");
-	_methods.push_back("DELETE");
-
-	(void)filename;
-	//Configuration file parsing
-
-	_server = createServer(_port);
-	setNonBlocking(_server);
-}
 
 const bool&			conf::autoindex()	{ return _autoindex;	}
 
@@ -92,3 +37,6 @@ bool	conf::methodAllowed(std::string method)
 {
 	return (std::find(_methods.begin(), _methods.end(), method) != _methods.end());
 }
+
+const int&			conf::epfd()		{ return (_epfd);		}
+const epoll_event&	conf::event()		{ return (_event);		}

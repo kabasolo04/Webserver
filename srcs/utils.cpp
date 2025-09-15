@@ -16,6 +16,17 @@ bool	is_file(const std::string &path)
 	return S_ISREG(info.st_mode); // true if regular file
 }
 
+void	setNonBlocking(int fd)
+{
+	int old_option = fcntl(fd, F_GETFL);
+	int new_option = old_option | O_NONBLOCK;
+
+	if (old_option == -1)
+		throw std::runtime_error("fctnl() failed | utils.cpp - setNonBlocking()");
+	if (fcntl(fd, F_SETFL, new_option) == -1)
+		throw std::runtime_error("fctnl() failed | utils.cpp - setNonBlocking()");
+}
+
 std::string getReasonPhrase(StatusCode code)
 {
 	switch (code)
