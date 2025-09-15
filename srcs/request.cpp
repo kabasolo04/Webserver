@@ -2,60 +2,49 @@
 
 request::request() {}
 
-request::request(int fd, std::string buffer): _fd(fd), _buffer(buffer), _finished(0) {}
+request::request(int fd, std::string buffer): _fd(fd), _buffer(buffer) {}
 
 request::~request() {}
 
-void	request::readFd()
+bool	request::readSocket()
 {
 	char buffer[BUFFER];
 
 	ssize_t len = read(_fd, buffer, sizeof(buffer));
 
-	if (len < 0)
-		throw std::runtime_error("Read Error");
-	if (len == 0)
-		throw std::runtime_error("Client Disconnected");
-	if (len >= 0)
-	{
+	if (len > 0)
 		_buffer.append(buffer, len);
-	}
-}
 
-void	request::readSocket()
-{
-	readFd();
-	if (check())
-		_finished = 1;
-}
+	else if (len == 0)
+		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
 
-bool	request::finished()
-{
-	return (_finished);
+	else if (len < 0)
+		return (0);
+
+	return (check());
 }
 
 /* Gets the path and the protocol version from the request line */
-void	request::getReqLineVars()
+void	request::setReqLineVars()
 {
 	std::string method, path, protocol;
 	std::istringstream iss(_buffer);
 
 	// Read three tokens: METHOD, PATH, PROTOCOL
 	if (!(iss >> method >> path >> protocol))
-		throw httpException(BAD_REQUEST);
+		throw httpResponse(BAD_REQUEST);
 	_path = path;
 	_protocol = protocol;
 }
 
-
 /* Gets the header variables and puts them into a map */
-void		request::getHeaderVars()
+void		request::setHeaderVars()
 {
-	getReqLineVars();
+	setReqLineVars();
 
 	size_t header_start = _buffer.find("\r\n");
 	if (header_start == std::string::npos)
-		throw httpException(BAD_REQUEST);
+		throw httpResponse(BAD_REQUEST);
 	header_start += 2;
 	size_t header_end;
 
@@ -65,16 +54,16 @@ void		request::getHeaderVars()
 			break;
 
 		if (header_end - header_start > conf::headerSize())
-			throw httpException(BAD_REQUEST);
+			throw httpResponse(BAD_REQUEST);
 
 		std::string line = _buffer.substr(header_start, header_end - header_start);
 		size_t colon = line.find(":");
 		if (colon == std::string::npos)
-			throw httpException(BAD_REQUEST);
+			throw httpResponse(BAD_REQUEST);
 		std::string key = line.substr(0, colon);
 		std::string value = line.substr(colon + 1);
 		if (key.empty())
-			throw httpException(BAD_REQUEST);
+			throw httpResponse(BAD_REQUEST);
 		if (!value.empty() && value[0] == ' ')
 			value.erase(0, 1); //remove space
 
@@ -82,7 +71,7 @@ void		request::getHeaderVars()
 		header_start = header_end + 2;
 	}
 	if (_headers.find("Host") == _headers.end())
-		throw httpException(BAD_REQUEST);
+		throw httpResponse(BAD_REQUEST);
 }
 
 void	request::printHeaders()
@@ -92,6 +81,9 @@ void	request::printHeaders()
 	std::cout << "Protocol: " << _protocol << std::endl;
 	std::map<std::string, std::string>::iterator it;
 	for (it = _headers.begin(); it != _headers.end(); ++it)
-		std::cout << it->first << ": " << it->second << std::endl;
+	std::cout << it->first << ": " << it->second << std::endl;
 	std::cout << "=============" << std::endl;
 }
+
+const std::string& request::getContentType() const { return _contentType; }
+const std::string& request::getBody() const { return _body; }

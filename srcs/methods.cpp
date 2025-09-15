@@ -10,43 +10,38 @@ myGet::~myGet() {}
 
 void myGet::response(std::ifstream &file)
 {
-	std::string line;
-	std::string buffer;
 	std::ostringstream oss;
 
 	// this->printHeaders();
 	oss << file.rdbuf(); // reads raw bytes into oss
-	buffer = oss.str();
-	std::string response = buildResponse(OK, buffer, getMimeType(_path));
-	write(_fd, response.c_str(), response.size());
+	_body = oss.str();
+	_contentType = getMimeType(_path);
 }
 
 void myGet::process()
 {
 	std::ifstream file;
+
 	_path = conf::root() + _path;
 
 	if (is_directory(_path))
 		_path += "/index.html";
 
-	if (is_file(_path))
-	{
-		file.open(_path.c_str());
-		if (file.is_open())
-			response(file);
-		else
-			throw httpException(NOT_FOUND);
-	}
-	else
-		throw httpException(NOT_FOUND);
+	if (!is_file(_path))
+		throw httpResponse(NOT_FOUND);
+
+	file.open(_path.c_str());
+
+	if (!file.is_open())
+		throw httpResponse(NOT_FOUND);
+
+	response(file);
 }
 
 bool myGet::check()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
-	{
-		return (getHeaderVars(), 1);
-	}
+		return (setHeaderVars(), 1);
 	return 0;
 }
 
@@ -61,7 +56,7 @@ myPost::~myPost() {}
 void myPost::process()
 {
 	if (_headers.find("Content-Type") == _headers.end())
-		throw httpException(BAD_REQUEST);
+		throw httpResponse(BAD_REQUEST);
 
 	const std::string &ctype = _headers["Content-Type"];
 	if (ctype.find("multipart/form-data") != std::string::npos)
@@ -71,7 +66,7 @@ void myPost::process()
 	else if (ctype.find("application/json") != std::string::npos)
 		std::cout << "json" << std::endl; // handleJson();
 	else
-		throw httpException(UNSUPPORTED_MEDIA_TYPE);
+		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
 
 	std::string body = "<html><body><h1>Upload successful!</h1></body></html>";
 	std::string response = buildResponse(OK, body, "text/html");
@@ -85,7 +80,7 @@ void myPost::handleMultipart()
 	if (pos != std::string::npos)
 		boundary = "--" + _headers["Content-Type"].substr(pos + 9); // prepend --
 	else
-		throw httpException(BAD_REQUEST);
+		throw httpResponse(BAD_REQUEST);
 
 	std::vector<std::string> parts;
 	size_t start = 0;
@@ -123,7 +118,7 @@ bool myPost::chunkedCheck()
 		char *endptr = NULL;
 		unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
 		if (endptr == sizeStr.c_str()) // invalid number
-			throw httpException(BAD_REQUEST);
+			throw httpResponse(BAD_REQUEST);
 
 		if (chunkSize == 0)
 		{
@@ -147,7 +142,7 @@ bool myPost::check()
 		const long unsigned int it = _buffer.find("\r\n\r\n");
 		if (it != std::string::npos)
 		{
-			getHeaderVars();
+			setHeaderVars();
 			printHeaders();
 			_headerCheck = 1;
 			_buffer.erase(0, it + 4);
@@ -161,7 +156,7 @@ bool myPost::check()
 			errno = 0;
 			unsigned long len = std::strtoul(_headers["Content-Length"].c_str(), &endptr, 10);
 			if (errno != 0 || endptr[0] != '\0')
-				throw httpException(BAD_REQUEST);
+				throw httpResponse(BAD_REQUEST);
 			if (_buffer.size() >= len)
 			{
 				_body = _buffer.substr(0, len);
@@ -173,7 +168,7 @@ bool myPost::check()
 				 _headers["Transfer-Encoding"] == "chunked")
 			return(chunkedCheck());
 		else
-			throw httpException(BAD_REQUEST);
+			throw httpResponse(BAD_REQUEST);
 	}
 	return (0);
 }
@@ -188,13 +183,14 @@ myDelete::~myDelete() {}
 
 void myDelete::process()
 {
+
 }
 
 bool myDelete::check()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 	{
-		return (getHeaderVars(), 1);
+		return (setHeaderVars(), 1);
 	}
 	return 0;
 }

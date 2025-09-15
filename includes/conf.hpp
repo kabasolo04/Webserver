@@ -4,7 +4,7 @@
 
 class conf
 {
-	private:
+	protected:
 		static bool						_autoindex;
 
 		static int						_port;
@@ -21,14 +21,10 @@ class conf
 
 		static int						_epfd;
 		static epoll_event				_event;
-		static epoll_event				_events[5];
 
 		conf();
 	
 	public:
-		static void	setConfig(std::string filename);
-		static void setEpoll();
-
 		static const bool&			autoindex();
 
 		static const int&			port();

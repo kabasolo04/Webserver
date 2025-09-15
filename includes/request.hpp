@@ -13,28 +13,26 @@ class request
 		std::string							_protocol;
 		std::map<std::string, std::string>	_headers;
 		std::string							_body;
+		std::string							_contentType;
 
-		int									_status;
-		std::string							_errorMessage;
-		
-	private:
-		bool			_finished;
-
-		void	readFd();
-		request();
-
-	public:
 		request(int fd, std::string buffer);
-		virtual ~request();
-	
-		virtual void	process() = 0;
 		virtual bool	check() = 0;
 		
-		void		readSocket();
-		bool		finished();
-		void		getReqLineVars();
-		void		getHeaderVars();
+		void		setReqLineVars();
+		void		setHeaderVars();
 		void		printHeaders();
+		
+		private:
+		request();
+		
+	public:
+		virtual ~request();
+		
+		bool			readSocket();
+		virtual void	process() = 0;
+	
+		const std::string& getContentType() const;
+		const std::string& getBody() const;
 };
 	
 	/*

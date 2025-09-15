@@ -10,10 +10,10 @@ class requestHandler
 		requestHandler();
 		~requestHandler();
 
-		static void	delReq(int fd);
-		static void	addReq(int fd);
-
+		static request*&	getReq(int fd);
+		
 	public:
-		static void	readReq(int fd);
+		static void			readReq(int fd);
+		static void			delReq(int fd);
 };
 
