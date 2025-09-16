@@ -62,9 +62,9 @@ void myPost::process()
 	if (ctype.find("multipart/form-data") != std::string::npos)
 		handleMultipart();
 	else if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-		std::cout << "form" << std::endl; // handleFormUrlEncoded();
+		saveForm(_body);
 	else if (ctype.find("application/json") != std::string::npos)
-		std::cout << "json" << std::endl; // handleJson();
+		saveForm(_body);
 	else
 		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
 
@@ -94,16 +94,14 @@ void myPost::handleMultipart()
 			parts.push_back(part);
 		start = end + boundary.size();
 	}
-
-	for (std::vector<std::string>::const_iterator it = parts.begin(); it != parts.end(); ++it) {
-        const std::string &part = *it;
-        if (part.find("filename=") != std::string::npos)
-            saveFile(part);
-        else
-            std::cout << "multipart form received" << std::endl;
-    }
-
-	
+	for (std::vector<std::string>::const_iterator it = parts.begin(); it != parts.end(); ++it)
+	{
+		const std::string &part = *it;
+		if (part.find("filename=") != std::string::npos)
+			saveFile(part);
+		else
+			saveForm(part);
+	}
 }
 
 bool myPost::chunkedCheck()
@@ -165,7 +163,7 @@ bool myPost::check()
 		}
 		// Chunked transfer
 		else if (_headers.find("Transfer-Encoding") != _headers.end() &&
-				 _headers["Transfer-Encoding"] == "chunked")
+				_headers["Transfer-Encoding"] == "chunked")
 			return(chunkedCheck());
 		else
 			throw httpResponse(BAD_REQUEST);
@@ -181,16 +179,35 @@ myDelete::myDelete(int fd, std::string buffer) : request(fd, buffer) {}
 
 myDelete::~myDelete() {}
 
-void myDelete::process()
+void	myDelete::process()
 {
-
+	_path = conf::root() + _path;
+	if (is_directory(_path))
+		throw httpResponse(FORBIDEN);
+	if (std::remove(_path.c_str()) == 0)
+	{
+		std::string body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
+		std::string response = buildResponse(OK, body, "text/html");
+		write(_fd, response.c_str(), response.size());
+	}
+	else
+	{
+		switch (errno)
+		{
+			case ENOENT: // File doesn't exist
+				throw httpResponse(NOT_FOUND);
+			case EACCES: // Permission denied
+			case EPERM:  // Operation not permitted
+				throw httpResponse(FORBIDEN);
+			default:     // Something else went wrong
+				throw httpResponse(INTERNAL_SERVER_ERROR);
+		}
+	}
 }
 
 bool myDelete::check()
 {
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
-	{
 		return (setHeaderVars(), 1);
-	}
 	return 0;
 }

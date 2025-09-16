@@ -1,17 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>POST tester</title>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background:#222; color:#eee; display:flex; align-items:center; justify-content:center; height:100vh; }
-    .card { background:#333; padding:20px; border-radius:8px; width:380px; }
-    label { display:block; margin:8px 0 4px; }
-    input, button { width:100%; padding:8px; margin-bottom:10px; }
-    small { color:#bbb; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #222;
+      color: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: #333;
+      padding: 20px;
+      border-radius: 8px;
+      width: 380px;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0 4px;
+    }
+
+    input,
+    button {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+
+    small {
+      color: #bbb;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h3>POST tester</h3>
@@ -50,8 +79,40 @@
       <button id="sendJson">Send JSON POST to /json</button>
       <p id="jsonResult" style="font-size:0.9em"></p>
     </div>
+    <div>
+      <h2>Delete a file</h2>
+      <input type="text" id="filename" placeholder="Enter filename (e.g. test.png)">
+      <button onclick="deleteFile()">Delete</button>
+    </div>
   </div>
 
+
+  <script>
+    function deleteFile() {
+      const fname = document.getElementById("filename").value.trim();
+      if (!fname) {
+        alert("Please enter a file name.");
+        return;
+      }
+      fetch("/"+encodeURIComponent(fname), {
+        method: "DELETE"
+      })
+        .then(response => {
+          if (response.ok) {
+            alert("Deleted: " + fname);
+          } else if (response.status === 404) {
+            alert("File not found: " + fname);
+          } else if (response.status === 403) {
+            alert("Forbidden: no permission");
+          } else {
+            alert("Error: " + response.status);
+          }
+        })
+        .catch(err => {
+          alert("Request failed: " + err);
+        });
+    }
+  </script>
   <script>
     document.getElementById('sendJson').addEventListener('click', function () {
       var name = document.getElementById('jsonName').value;
@@ -62,16 +123,17 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      .then(function (res) {
-        return res.text().then(function (t) { return { status: res.status, text: t }; });
-      })
-      .then(function (r) {
-        document.getElementById('jsonResult').textContent = 'Status: ' + r.status + ' — Response: ' + r.text;
-      })
-      .catch(function (err) {
-        document.getElementById('jsonResult').textContent = 'Error: ' + err.message;
-      });
+        .then(function (res) {
+          return res.text().then(function (t) { return { status: res.status, text: t }; });
+        })
+        .then(function (r) {
+          document.getElementById('jsonResult').textContent = 'Status: ' + r.status + ' — Response: ' + r.text;
+        })
+        .catch(function (err) {
+          document.getElementById('jsonResult').textContent = 'Error: ' + err.message;
+        });
     });
   </script>
 </body>
+
 </html>

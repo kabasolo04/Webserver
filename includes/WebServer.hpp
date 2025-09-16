@@ -25,6 +25,7 @@
 #include <netdb.h>        // for getaddrinfo, freeaddrinfo
 #include <sys/stat.h>     // for stat
 #include <dirent.h>       // for opendir, readdir, closedir
+#include <sys/time.h>	  // for time
 
 #include <sstream> 
 #include <fstream>
