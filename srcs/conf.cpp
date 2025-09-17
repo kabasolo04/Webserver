@@ -1,6 +1,6 @@
 #include "WebServer.hpp"
 
-bool	conf::_autoindex = true;
+bool	conf::_autoindex = false;
 
 int		conf::_port = 8080;
 int		conf::_server = 0;

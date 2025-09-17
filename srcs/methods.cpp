@@ -25,8 +25,13 @@ void myGet::process()
 	_path = conf::root() + _path;
 
 	if (is_directory(_path))
-		_path += "/index.html";
-
+	{
+		if (!conf::autoindex())
+			_path += "/index.html";
+		else
+			return response(generateAutoIndex());
+	}
+		
 	if (!is_file(_path))
 		throw httpResponse(NOT_FOUND);
 
@@ -43,6 +48,21 @@ bool myGet::check()
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 		return (setHeaderVars(), 1);
 	return 0;
+}
+
+std::ifstream&	myGet::generateAutoIndex()
+{
+	DIR		*dir;
+
+	if (!_path.empty())
+		dir = opendir(_path.c_str());
+	else
+		dir = opendir(".");
+    if (!dir)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	
+	/* ITERATE THROUGH ALL FOLDERS AND FILES AND RETURN THEM IN HTML */
+		
 }
 
 //---------------------------------------------------------------------------//

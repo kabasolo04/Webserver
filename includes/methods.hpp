@@ -10,9 +10,10 @@ class myGet: public request
 	public:
 		myGet(int fd, std::string buffer);
 		~myGet();
-		void		response(std::ifstream &file);
-		void		process();
-		bool		check();
+		void			response(std::ifstream &file);
+		void			process();
+		bool			check();
+		std::ifstream&	generateAutoIndex();
 };
 
 class myPost: public request
