@@ -29,17 +29,19 @@ void myGet::process()
 		if (!conf::autoindex())
 			_path += "/index.html";
 		else
-			return response(generateAutoIndex());
+			return generateAutoIndex();
 	}
 		
 	if (!is_file(_path))
-		throw httpResponse(NOT_FOUND);
-
+	{
+		if (!conf::autoindex())
+			throw httpResponse(NOT_FOUND);
+		else
+			return generateAutoIndex();
+	}
 	file.open(_path.c_str());
-
 	if (!file.is_open())
-		throw httpResponse(NOT_FOUND);
-
+		throw httpResponse(INTERNAL_SERVER_ERROR);
 	response(file);
 }
 
@@ -50,7 +52,7 @@ bool myGet::check()
 	return 0;
 }
 
-std::ifstream&	myGet::generateAutoIndex()
+void	myGet::generateAutoIndex()
 {
 	DIR		*dir;
 
@@ -61,8 +63,8 @@ std::ifstream&	myGet::generateAutoIndex()
     if (!dir)
 		throw httpResponse(INTERNAL_SERVER_ERROR);
 	
-	/* ITERATE THROUGH ALL FOLDERS AND FILES AND RETURN THEM IN HTML */
-		
+	/* ITERATE THROUGH ALL FOLDERS AND FILES AND WRITE THEM IN THE _BODY IN HTML */
+
 }
 
 //---------------------------------------------------------------------------//

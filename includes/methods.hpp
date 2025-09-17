@@ -13,7 +13,7 @@ class myGet: public request
 		void			response(std::ifstream &file);
 		void			process();
 		bool			check();
-		std::ifstream&	generateAutoIndex();
+		void	generateAutoIndex();
 };
 
 class myPost: public request
