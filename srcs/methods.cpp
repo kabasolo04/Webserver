@@ -54,17 +54,20 @@ bool myGet::check()
 
 void	myGet::generateAutoIndex()
 {
-	DIR		*dir;
+	DIR	*dir;
 
 	if (!_path.empty())
 		dir = opendir(_path.c_str());
 	else
 		dir = opendir(".");
-    if (!dir)
+	if (!dir)
 		throw httpResponse(INTERNAL_SERVER_ERROR);
-	
 	/* ITERATE THROUGH ALL FOLDERS AND FILES AND WRITE THEM IN THE _BODY IN HTML */
 
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != (void*)0)
+		std::cout << "Archivo o carpeta: " << entry->d_name << std::endl;
+	closedir(dir);
 }
 
 //---------------------------------------------------------------------------//
