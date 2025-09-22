@@ -222,6 +222,7 @@ void	myDelete::process()
 			case ENOENT: // File doesn't exist
 				throw httpResponse(NOT_FOUND);
 			case EACCES: // Permission denied
+				throw httpResponse(FORBIDEN);
 			case EPERM:  // Operation not permitted
 				throw httpResponse(FORBIDEN);
 			default:     // Something else went wrong

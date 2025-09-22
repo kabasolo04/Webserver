@@ -41,6 +41,7 @@ std::string getReasonPhrase(StatusCode code)
 		case METHOD_NOT_ALLOWED: return "Method Not Allowed";
 		case PAYLOAD_TOO_LARGE: return "Payload Too Large";
 		case UNSUPPORTED_MEDIA_TYPE: return "Unsupported Media Type";
+		case NOT_IMPLEMENTED: return "Not Implemented";
 		case LOL: return "No Fucking Idea Mate";
 		default: return "Unknown";
 	}
@@ -123,3 +124,5 @@ void	saveForm(const std::string &part)
 	out.close();
 	std::cout << "Saved form file: " << filename << std::endl;
 }
+
+
