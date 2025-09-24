@@ -39,6 +39,15 @@ void myGet::process()
 		else
 			return generateAutoIndex();
 	}
+
+	if (isCgiScript(_path))
+	{
+		cgi(_body, _path, getQuery(_path), "/usr/bin/php-cgi");	// adjust interpreter
+		//_body = responseBody.str();			// assuming File can give back string
+		_contentType = "text/html";				// or parse CGI headers if needed
+		return;
+	}
+
 	file.open(_path.c_str());
 	if (!file.is_open())
 		throw httpResponse(INTERNAL_SERVER_ERROR);

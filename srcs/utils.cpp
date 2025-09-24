@@ -126,3 +126,10 @@ void	saveForm(const std::string &part)
 }
 
 
+std::string	getQuery(std::string path)
+{
+	size_t mark = path.find("?");
+	if (mark == std::string::npos)
+		return "";
+	return (path.substr(mark + 1));
+}

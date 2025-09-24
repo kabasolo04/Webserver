@@ -37,5 +37,6 @@
 #include "httpResponse.hpp"
 #include "utils.hpp"
 #include "methods.hpp"
+#include "cgi.hpp"
 
 //#include "factory.hpp"
