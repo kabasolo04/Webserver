@@ -30,9 +30,8 @@ void myAccept(int epfd)
 	}
 }
 
-int main(int argc, char **argv, char **envp)
+int main(int argc, char **argv)
 {
-	g_envp = envp;
 	if (argc != 2)
 		return (std::cerr << "Error: './webserv /config/file/path' | main.cpp - main()" << std::endl, 0);
 

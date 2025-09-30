@@ -11,6 +11,7 @@ class myGet: public request
 		myGet(int fd, std::string buffer);
 		~myGet();
 		void			response(std::ifstream &file);
+		void			setQuery();
 		void			process();
 		bool			check();
 		void			generateAutoIndex();

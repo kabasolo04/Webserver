@@ -8,12 +8,15 @@ class request
 {
 	protected:
 		int									_fd;
+		std::string							_method;
 		std::string							_buffer;
 		std::string							_path;
 		std::string							_protocol;
 		std::map<std::string, std::string>	_headers;
 		std::string							_body;
 		std::string							_contentType;
+		std::string							_query;
+
 
 		request(int fd, std::string buffer);
 		virtual bool	check() = 0;
@@ -33,6 +36,14 @@ class request
 	
 		const std::string& getContentType() const;
 		const std::string& getBody() const;
+		const std::string& getMethod() const;
+		const std::string& getPath() const;
+		const std::string& getQuery() const;
+
+	
+		void	setBody(std::string body);
+		void	cgi(std::string command);
+
 };
 	
 	/*

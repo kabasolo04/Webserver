@@ -4,7 +4,7 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(int fd, std::string buffer) : request(fd, buffer) {}
+myGet::myGet(int fd, std::string buffer) : request(fd, buffer) {_method = "GET";}
 
 myGet::~myGet() {}
 
@@ -22,6 +22,7 @@ void myGet::process()
 {
 	std::ifstream file;
 
+	setQuery();		// Strip the query from the path to separate them
 	_path = conf::root() + _path;
 
 	if (is_directory(_path))
@@ -31,7 +32,7 @@ void myGet::process()
 		else
 			return generateAutoIndex();
 	}
-		
+
 	if (!is_file(_path))
 	{
 		if (!conf::autoindex())
@@ -42,9 +43,8 @@ void myGet::process()
 
 	if (isCgiScript(_path))
 	{
-		cgi(_body, _path, getQuery(_path), "/usr/bin/php-cgi");	// adjust interpreter
-		//_body = responseBody.str();			// assuming File can give back string
-		_contentType = "text/html";				// or parse CGI headers if needed
+		cgi("/usr/bin/php-cgi");		// adjust interpreter
+		_contentType = "text/html";		// or parse CGI headers if needed
 		return;
 	}
 
@@ -59,6 +59,15 @@ bool myGet::check()
 	if (_buffer.find("\r\n\r\n") != std::string::npos)
 		return (setHeaderVars(), 1);
 	return 0;
+}
+
+void	myGet::setQuery()
+{
+	size_t mark = _path.find("?");
+	if (mark == std::string::npos)
+		_query = "";
+	_query = _path.substr(mark + 1);
+	_path = _path.substr(0, mark);
 }
 
 void	myGet::generateAutoIndex()
@@ -83,12 +92,16 @@ void	myGet::generateAutoIndex()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(int fd, std::string buffer) : request(fd, buffer), _headerCheck(0) {}
+myPost::myPost(int fd, std::string buffer) : request(fd, buffer), _headerCheck(0) {_method = "POST";}
 
 myPost::~myPost() {}
 
 void myPost::process()
 {
+
+	if (isCgiScript(_path))
+		return cgi("/usr/bin/python3");
+	std::cout << "nonono" << std::endl;
 	if (_headers.find("Content-Type") == _headers.end())
 		throw httpResponse(BAD_REQUEST);
 
@@ -175,7 +188,7 @@ bool myPost::check()
 		if (it != std::string::npos)
 		{
 			setHeaderVars();
-			printHeaders();
+			//printHeaders();
 			_headerCheck = 1;
 			_buffer.erase(0, it + 4);
 		}
@@ -209,7 +222,7 @@ bool myPost::check()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(int fd, std::string buffer) : request(fd, buffer) {}
+myDelete::myDelete(int fd, std::string buffer) : request(fd, buffer) {_method = "DELETE";}
 
 myDelete::~myDelete() {}
 

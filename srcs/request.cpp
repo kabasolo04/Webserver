@@ -87,3 +87,8 @@ void	request::printHeaders()
 
 const std::string& request::getContentType() const { return _contentType; }
 const std::string& request::getBody() const { return _body; }
+const std::string& request::getMethod() const { return _method; }
+const std::string& request::getPath() const { return _path; }
+const std::string& request::getQuery() const { return _query; }
+
+void request::setBody(std::string body) { _body = body; }

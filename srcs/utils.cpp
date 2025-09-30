@@ -125,11 +125,10 @@ void	saveForm(const std::string &part)
 	std::cout << "Saved form file: " << filename << std::endl;
 }
 
-
-std::string	getQuery(std::string path)
+std::string	getAbsolutePath(const std::string &path)
 {
-	size_t mark = path.find("?");
-	if (mark == std::string::npos)
-		return "";
-	return (path.substr(mark + 1));
+    char absPath[PATH_MAX];
+    if (realpath(path.c_str(), absPath) == NULL)
+        throw httpResponse(INTERNAL_SERVER_ERROR);
+    return std::string(absPath);
 }

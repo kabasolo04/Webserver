@@ -10,4 +10,4 @@ std::string		buildResponse(StatusCode code, const std::string& body, const std::
 std::string		getMimeType(const std::string &path);
 void			saveFile(const std::string &part);
 void			saveForm(const std::string &part);
-std::string     getQuery(std::string path);
+std::string		getAbsolutePath(const std::string &path);
