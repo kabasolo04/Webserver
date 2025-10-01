@@ -92,3 +92,4 @@ const std::string& request::getPath() const { return _path; }
 const std::string& request::getQuery() const { return _query; }
 
 void request::setBody(std::string body) { _body = body; }
+void request::setContentType(std::string contentType) { _contentType = contentType; }

@@ -42,6 +42,7 @@ class request
 
 	
 		void	setBody(std::string body);
+		void	setContentType(std::string contentType);
 		void	cgi(std::string command);
 
 };

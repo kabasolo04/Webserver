@@ -98,10 +98,10 @@ myPost::~myPost() {}
 
 void myPost::process()
 {
-
+	_path = conf::root() + _path;
 	if (isCgiScript(_path))
 		return cgi("/usr/bin/python3");
-	std::cout << "nonono" << std::endl;
+
 	if (_headers.find("Content-Type") == _headers.end())
 		throw httpResponse(BAD_REQUEST);
 

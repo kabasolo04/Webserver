@@ -127,8 +127,8 @@ void	saveForm(const std::string &part)
 
 std::string	getAbsolutePath(const std::string &path)
 {
-    char absPath[PATH_MAX];
-    if (realpath(path.c_str(), absPath) == NULL)
-        throw httpResponse(INTERNAL_SERVER_ERROR);
-    return std::string(absPath);
+	char absPath[PATH_MAX];
+	if (realpath(path.c_str(), absPath) == NULL)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	return std::string(absPath);
 }

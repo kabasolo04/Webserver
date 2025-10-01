@@ -63,6 +63,8 @@ std::vector<std::string>	build_env(const request& req)
 		std::ostringstream ss;
 		ss << req.getBody().size();
 		env_str.push_back("CONTENT_LENGTH=" + ss.str());
+		env_str.push_back("SCRIPT_NAME=" + req.getPath());
+		env_str.push_back("PATH_INFO=" + req.getPath());
 		env_str.push_back("CONTENT_TYPE=application/x-www-form-urlencoded");
 	}
 	else
@@ -105,7 +107,6 @@ void handleParent(request& req, pid_t child, int outPipe[2], int inPipe[2])
 		write(inPipe[1], req.getBody().c_str(), req.getBody().size());
 		close(inPipe[1]);
 	}
-
 	std::string response;
 	char buf[BUFFER];
 	ssize_t n;
@@ -118,11 +119,27 @@ void handleParent(request& req, pid_t child, int outPipe[2], int inPipe[2])
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 		throw httpResponse(INTERNAL_SERVER_ERROR);
 
+	// Split headers and body
 	size_t headerEnd = response.find("\r\n\r\n");
+	std::string cgiHeaders;
+	std::string cgiBody;
+
 	if (headerEnd != std::string::npos)
-		req.setBody(response.substr(headerEnd + 4));
+	{
+		cgiHeaders = response.substr(0, headerEnd);
+		cgiBody = response.substr(headerEnd + 4);
+	}
 	else
-		req.setBody(response);
+		cgiBody = response;
+	size_t pos = cgiHeaders.find("Content-Type:");
+	if (pos != std::string::npos)
+	{
+		size_t end = cgiHeaders.find("\r\n", pos);
+		req.setContentType(cgiHeaders.substr(pos + 13, end - pos - 13));
+	}
+	else
+		req.setContentType("text/html");
+	req.setBody(cgiBody);
 }
 
 void	request::cgi(std::string command)
@@ -134,7 +151,9 @@ void	request::cgi(std::string command)
 	int inPipe[2];
 	if (_method == "POST" && pipe(inPipe) == -1)
 	{
-		close(outPipe[0]); close(outPipe[1]);
+		close(outPipe[0]);
+		close(outPipe[1]);
+		std::cerr << "CGI post inpipe failed" << std::endl;
 		throw httpResponse(INTERNAL_SERVER_ERROR);
 	}
 
@@ -148,6 +167,7 @@ void	request::cgi(std::string command)
 			close(inPipe[0]);
 			close(inPipe[1]);
 		}
+		std::cerr << "CGI fork failed" << std::endl;
 		throw httpResponse(INTERNAL_SERVER_ERROR);
 	}
 	_path = getAbsolutePath(_path);
