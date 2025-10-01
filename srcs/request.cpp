@@ -1,10 +1,39 @@
 #include "WebServer.hpp"
 
-request::request() {}
+request::request(int fd): _fd(fd), _methodSelected(0) {}
 
-request::request(int fd, std::string buffer): _fd(fd), _buffer(buffer) {}
+request::request(request& other, std::map <int, serverConfig*>& servers): _methodSelected(1)
+{
+	*this = other;
+	std::map<int, serverConfig*>::iterator serverIt = servers.begin();
+	for (; serverIt != servers.end(); ++serverIt)
+	{
+		serverConfig*& server = serverIt->second;
+		std::vector<listenEntry>::iterator listenIt = server->listenBegin();
+		for (; listenIt != server->listenEnd(); ++listenIt)
+			if (listenIt->_fd == _fd)
+				_server = *server;
+	}
+	setHeaderVars();
+}
 
 request::~request() {}
+
+request&	request::operator = (const request& other)
+{
+	if (this != &other)
+	{
+		_fd = other._fd;
+		_buffer = other._buffer;
+		_path = other._path;
+		_protocol = other._protocol;
+		_headers = other._headers;
+		_body = other._body;
+		_contentType = other._contentType;
+		_server = other._server;
+	}
+	return (*this);
+}
 
 bool	request::readSocket()
 {
@@ -21,8 +50,32 @@ bool	request::readSocket()
 	else if (len < 0)
 		return (0);
 
-	return (check());
+	return (_buffer.find("\r\n\r\n") != std::string::npos);
 }
+
+void	request::process()	{ throw httpResponse(METHOD_NOT_ALLOWED); }
+
+request*	request::selectMethod(std::map <int, serverConfig*>& servers)
+{
+	size_t pos = _buffer.find(' ');
+
+	if (pos == std::string::npos)
+		throw httpResponse(BAD_REQUEST);
+
+	std::string method = _buffer.substr(0, pos);
+	if (method == "GET")
+	{
+		std::cout << "This is a get" << std::endl;
+		return (new myGet(this, servers));
+	}
+	if (method == "POST")
+		return (new myPost(this, servers));
+	if (method == "DELETE")
+		return (new myDelete(this, servers));
+	return this;
+}
+
+bool	request::methodSelected()	{ return _methodSelected; }
 
 /* Gets the path and the protocol version from the request line */
 void	request::setReqLineVars()
@@ -53,8 +106,8 @@ void		request::setHeaderVars()
 		if (header_end == header_start)
 			break;
 
-		if (header_end - header_start > conf::headerSize())
-			throw httpResponse(BAD_REQUEST);
+		//if (header_end - header_start > 100000000000000000) //GUARRADA CAMBIARRRRRRRRR!!!!!!!!!!
+		//	throw httpResponse(BAD_REQUEST);
 
 		std::string line = _buffer.substr(header_start, header_end - header_start);
 		size_t colon = line.find(":");
@@ -85,5 +138,5 @@ void	request::printHeaders()
 	std::cout << "=============" << std::endl;
 }
 
-const std::string& request::getContentType() const { return _contentType; }
-const std::string& request::getBody() const { return _body; }
+const std::string& request::getContentType()	{ return _contentType;	}
+const std::string& request::getBody()			{ return _body;			}

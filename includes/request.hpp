@@ -14,36 +14,28 @@ class request
 		std::map<std::string, std::string>	_headers;
 		std::string							_body;
 		std::string							_contentType;
+		serverConfig						_server;
 
-		request(int fd, std::string buffer);
-		virtual bool	check() = 0;
+		bool								_methodSelected;
 		
 		void		setReqLineVars();
 		void		setHeaderVars();
 		void		printHeaders();
-		
-		private:
-		request();
-		
+	
+		request(request& other, std::map <int, serverConfig*>& servers);
+
 	public:
+		request(int fd);
 		virtual ~request();
-		
+
+		request& operator = (const request& other);
+
 		bool			readSocket();
-		virtual void	process() = 0;
+		virtual void	process();
+
+		request*		selectMethod(std::map <int, serverConfig*>& servers);
+		bool			methodSelected();
 	
-		const std::string& getContentType() const;
-		const std::string& getBody() const;
+		const std::string& getContentType();
+		const std::string& getBody();
 };
-	
-	/*
-	std::string		_header;
-	std::string		_body;
-
-	std::string		_method;
-	std::string		_path;
-	std::string		_http_version;
-	unsigned int	_status;
-	bool			_allowed;
-
-	struct epoll_event	_event;
-	*/

@@ -30,6 +30,7 @@
 #include <fstream>
 #include <exception>
 
+#include "serverConf.hpp"
 #include "conf.hpp"
 #include "request.hpp"
 #include "requestHandler.hpp"

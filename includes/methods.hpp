@@ -8,27 +8,23 @@ class myGet: public request
 		myGet();
 	
 	public:
-		myGet(int fd, std::string buffer);
+		myGet(request* req, std::map <int, serverConfig*>& servers);
 		~myGet();
-		void		response(std::ifstream &file);
 		void		process();
-		bool		check();
 };
 
 class myPost: public request
 {
 	private:
-		bool	_headerCheck;
-
 		myPost();
+		bool	chunkedCheck();
+		void	handleMultipart();
+		void	saveFile(const std::string &part);
 
 	public:
-		myPost(int fd, std::string buffer);
+		myPost(request* req, std::map <int, serverConfig*>& servers);
 		~myPost();
 		void		process();
-		bool		check();
-		bool		chunkedCheck();
-		void		handleMultipart();
 };
 
 class myDelete: public request
@@ -37,8 +33,7 @@ class myDelete: public request
 		myDelete();
 	
 	public:
-		myDelete(int fd, std::string buffer);
+		myDelete(request* req, std::map <int, serverConfig*>& servers);
 		~myDelete();
 		void		process();
-		bool		check();
 };

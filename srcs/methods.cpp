@@ -4,25 +4,17 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(int fd, std::string buffer) : request(fd, buffer) {}
+myGet::myGet(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { }
 
 myGet::~myGet() {}
-
-void myGet::response(std::ifstream &file)
-{
-	std::ostringstream oss;
-
-	// this->printHeaders();
-	oss << file.rdbuf(); // reads raw bytes into oss
-	_body = oss.str();
-	_contentType = getMimeType(_path);
-}
 
 void myGet::process()
 {
 	std::ifstream file;
 
-	_path = conf::root() + _path;
+	_path = _server.root() + _path;
+
+	std::cout << "aaaaa" << std::endl;
 
 	if (is_directory(_path))
 		_path += "/index.html";
@@ -35,21 +27,20 @@ void myGet::process()
 	if (!file.is_open())
 		throw httpResponse(NOT_FOUND);
 
-	response(file);
-}
+	std::ostringstream oss;
 
-bool myGet::check()
-{
-	if (_buffer.find("\r\n\r\n") != std::string::npos)
-		return (setHeaderVars(), 1);
-	return 0;
+	oss << file.rdbuf(); // reads raw bytes into oss
+	_body = oss.str();
+	_contentType = getMimeType(_path);
+
+	throw httpResponse(this);
 }
 
 //---------------------------------------------------------------------------//
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(int fd, std::string buffer) : request(fd, buffer), _headerCheck(0) {}
+myPost::myPost(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { delete req; }
 
 myPost::~myPost() {}
 
@@ -71,6 +62,7 @@ void myPost::process()
 	std::string body = "<html><body><h1>Upload successful!</h1></body></html>";
 	std::string response = buildResponse(OK, body, "text/html");
 	write(_fd, response.c_str(), response.size());
+	//throw httpResponse(this);
 }
 
 void myPost::handleMultipart()
@@ -84,6 +76,7 @@ void myPost::handleMultipart()
 
 	std::vector<std::string> parts;
 	size_t start = 0;
+
 	while (true)
 	{
 		size_t end = _body.find(boundary, start);
@@ -101,9 +94,7 @@ void myPost::handleMultipart()
             saveFile(part);
         else
             std::cout << "multipart form received" << std::endl;
-    }
-
-	
+    }	
 }
 
 bool myPost::chunkedCheck()
@@ -135,6 +126,36 @@ bool myPost::chunkedCheck()
 	}
 }
 
+void myPost::saveFile(const std::string &part)
+{
+	size_t sep = part.find("\r\n\r\n");
+	if (sep == std::string::npos)
+		return;
+	std::string headers = part.substr(0, sep);
+	std::string content = part.substr(sep + 4);
+
+	// Trim trailing CRLF
+	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
+		content.erase(content.size() - 2);
+
+	// Extract filename
+	size_t fnPos = headers.find("filename=");
+	if (fnPos != std::string::npos)
+	{
+		size_t q1 = headers.find("\"", fnPos);
+		size_t q2 = headers.find("\"", q1 + 1);
+		std::string filename = _server.root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+
+		std::ofstream out(filename.c_str(), std::ios::binary);
+		if (out)
+		{
+			out.write(content.data(), content.size());
+			out.close();
+			std::cout << "Saved file: " << filename << std::endl;
+		}
+	}
+}
+/*
 bool myPost::check()
 {
 	if (!_headerCheck)
@@ -164,33 +185,24 @@ bool myPost::check()
 			}
 		}
 		// Chunked transfer
-		else if (_headers.find("Transfer-Encoding") != _headers.end() &&
-				 _headers["Transfer-Encoding"] == "chunked")
+		else if (_headers.find("Transfer-Encoding") != _headers.end() && _headers["Transfer-Encoding"] == "chunked")
 			return(chunkedCheck());
 		else
 			throw httpResponse(BAD_REQUEST);
 	}
 	return (0);
 }
+*/
 
 //---------------------------------------------------------------------------//
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(int fd, std::string buffer) : request(fd, buffer) {}
+myDelete::myDelete(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { delete req; }
 
 myDelete::~myDelete() {}
 
 void myDelete::process()
 {
 
-}
-
-bool myDelete::check()
-{
-	if (_buffer.find("\r\n\r\n") != std::string::npos)
-	{
-		return (setHeaderVars(), 1);
-	}
-	return 0;
 }

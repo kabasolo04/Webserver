@@ -11,7 +11,7 @@ httpResponse::httpResponse(StatusCode code)
 	_body = temp.str();
 };
 
-httpResponse::httpResponse(const request* req)
+httpResponse::httpResponse(request* req)
 {	
 	_statusCode = OK;
 	_message = getReasonPhrase(_statusCode);

@@ -29,7 +29,7 @@ class httpResponse: public std::exception
 
 	public:
 		httpResponse(StatusCode code);
-		httpResponse(const request* req);
+		httpResponse(request* req);
 		virtual ~httpResponse() throw() {}
 
 		void sendResponse(int fd) const throw();

@@ -75,33 +75,3 @@ std::string getMimeType(const std::string &path)
 
 	return "application/octet-stream";
 }
-
-void saveFile(const std::string &part)
-{
-	size_t sep = part.find("\r\n\r\n");
-	if (sep == std::string::npos)
-		return;
-	std::string headers = part.substr(0, sep);
-	std::string content = part.substr(sep + 4);
-
-	// Trim trailing CRLF
-	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
-		content.erase(content.size() - 2);
-
-	// Extract filename
-	size_t fnPos = headers.find("filename=");
-	if (fnPos != std::string::npos)
-	{
-		size_t q1 = headers.find("\"", fnPos);
-		size_t q2 = headers.find("\"", q1 + 1);
-		std::string filename = conf::root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
-
-		std::ofstream out(filename.c_str(), std::ios::binary);
-		if (out)
-		{
-			out.write(content.data(), content.size());
-			out.close();
-			std::cout << "Saved file: " << filename << std::endl;
-		}
-	}
-}

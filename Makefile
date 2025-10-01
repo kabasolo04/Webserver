@@ -10,7 +10,15 @@ SRC_DIR := srcs
 OBJ_DIR := obj
 
 # Source and object files
-SRCS := $(SRC_DIR)/main.cpp $(SRC_DIR)/methods.cpp $(SRC_DIR)/requestHandler.cpp $(SRC_DIR)/conf.cpp $(SRC_DIR)/setConf.cpp $(SRC_DIR)/request.cpp $(SRC_DIR)/utils.cpp $(SRC_DIR)/httpResponse.cpp
+SRCS :=	$(SRC_DIR)/main.cpp \
+		$(SRC_DIR)/methods.cpp \
+		$(SRC_DIR)/requestHandler.cpp \
+		$(SRC_DIR)/conf.cpp \
+		$(SRC_DIR)/serverConf.cpp \
+		$(SRC_DIR)/request.cpp \
+		$(SRC_DIR)/utils.cpp \
+		$(SRC_DIR)/httpResponse.cpp \
+
 OBJS := $(SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
 # Default rule

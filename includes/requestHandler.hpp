@@ -13,7 +13,7 @@ class requestHandler
 		static request*&	getReq(int fd);
 		
 	public:
-		static void			readReq(int fd);
+		static void			readReq(int fd, std::map <int, serverConfig*>& server);
 		static void			delReq(int fd);
 };
 

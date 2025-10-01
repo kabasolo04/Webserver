@@ -5,40 +5,19 @@
 class conf
 {
 	protected:
-		static bool						_autoindex;
-
-		static int						_port;
-		static int						_server;
-		static int						_bodySize;
-		static size_t					_headerSize;
-
-		static std::string				_root;
-		static std::string				_host;
-		static std::string				_index;
-		static std::string				_serverName;
-
-		static std::vector<std::string>	_methods;
-
-		static int						_epfd;
-		static epoll_event				_event;
+		static std::vector<serverConfig>	_servers;
+		static int							_epfd;	// Global epoll file descriptor
+		static epoll_event					_event;	// Global shared event struct
 
 		conf();
+		~conf();
 	
 	public:
-		static const bool&			autoindex();
-
-		static const int&			port();
-		static const int&			server();
-		static const int&			bodySize();
-		static const size_t&		headerSize();
-
-		static const std::string&	root();
-		static const std::string&	host();
-		static const std::string&	index();
-		static const std::string&	serverName();
-
-		static bool					methodAllowed(std::string method);
+		static std::vector<serverConfig>::iterator	serverBegin();
+		static std::vector<serverConfig>::iterator	serverEnd();
 
 		static const int&			epfd();
 		static const epoll_event&	event();
+
+		static void	parseFile(std::string filename);
 };
