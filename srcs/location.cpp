@@ -46,11 +46,18 @@ int	location::setCgiRoot(TOKENS)		{ _cgiRoot = tokens[i];											return (1); 
 
 int	location::addMethods(TOKENS)
 {
-	
+
 }
 
-int	location::addErrorPage(TOKENS) {}
-int	location::addCgiExtension(TOKENS) {}
+int	location::addErrorPage(TOKENS)
+{
+
+}
+
+int	location::addCgiExtension(TOKENS)
+{
+	
+}
 
 struct DirectiveHandler
 {
@@ -87,3 +94,20 @@ int location::handleDirective(const std::string& key, const std::vector<std::str
 
 	throw std::runtime_error("Unknown directive: '" + key + "' | location.cpp - handleDirective()");
 }
+
+const std::string& 				location::getPath() const		{ return _path;			}
+const std::string& 				location::getRoot() const		{ return _root;			}
+const std::string& 				location::getIndex() const		{ return _index;		}
+const std::vector<std::string>&	location::getMethods() const	{ return _methods;		}
+bool							location::isAutoindex() const	{ return _autoindex;	}
+		
+const std::map<int, std::string>& 	location::getErrorPages() const	{ return _errorPages; }
+		
+size_t	location::getBodySize() const	{ return _bodySize;		}
+size_t	location::getHeaderSize() const	{ return _headerSize;	}
+		
+bool				location::isUploadEnabled() const	{ return _uploadEnable; }
+const std::string&	location::getUploadStore() const	{ return _uploadStore; }
+		
+const	std::string& 						location::getCgiRoot() const		{ return _cgiRoot; }
+const std::map<std::string, std::string>&	location::getCgiExtensions() const	{ return _cgiExtensions; }

@@ -19,22 +19,26 @@ class location
 		bool								_uploadEnable;
 		std::string							_uploadStore;
 
-		std::map<std::string, std::string>	_cgiExtensions; // ".php" -> "/usr/bin/php-cgi"
 		std::string							_cgiRoot;
+		std::map<std::string, std::string>	_cgiExtensions;
 
 		int	setPath(const std::vector<std::string>& tokens, int i);
 		int	setRoot(const std::vector<std::string>& tokens, int i);
 		int	setIndex(const std::vector<std::string>& tokens, int i);
+		int	addMethods(const std::vector<std::string>& tokens, int i);
 		int	setAutoindex(const std::vector<std::string>& tokens, int i);
+
+		int	addErrorPage(const std::vector<std::string>& tokens, int i);
+
 		int	setHeaderSize(const std::vector<std::string>& tokens, int i);
 		int	setBodySize(const std::vector<std::string>& tokens, int i);
+
 		int	setUploadEnable(const std::vector<std::string>& tokens, int i);
 		int	setUploadStore(const std::vector<std::string>& tokens, int i);
-		int	setCgiRoot(const std::vector<std::string>& tokens, int i);
 
-		int	addMethods(const std::vector<std::string>& tokens, int i);
-		int	addErrorPage(const std::vector<std::string>& tokens, int i);
+		int	setCgiRoot(const std::vector<std::string>& tokens, int i);
 		int	addCgiExtension(const std::vector<std::string>& tokens, int i);
+
 
 	public:
 		location();
@@ -42,4 +46,21 @@ class location
 		~location();
 
 		int handleDirective(const std::string& key, const std::vector<std::string>& tokens, size_t i);
+
+		const std::string& 				getPath() const;	
+		const std::string& 				getRoot() const;
+		const std::string& 				getIndex() const;
+		const std::vector<std::string>&	getMethods() const;
+		bool							isAutoindex() const;
+
+		const std::map<int, std::string>& 	getErrorPages() const;
+		
+		size_t	getBodySize() const;
+		size_t	getHeaderSize() const;
+		
+		bool	isUploadEnabled() const;
+		const	std::string& getUploadStore() const;
+		
+		const	std::string& getCgiRoot() const;
+		const	std::map<std::string, std::string>& getCgiExtensions() const;
 };
