@@ -64,10 +64,7 @@ request*	request::selectMethod(std::map <int, serverConfig*>& servers)
 
 	std::string method = _buffer.substr(0, pos);
 	if (method == "GET")
-	{
-		std::cout << "This is a get" << std::endl;
 		return (new myGet(this, servers));
-	}
 	if (method == "POST")
 		return (new myPost(this, servers));
 	if (method == "DELETE")
@@ -138,5 +135,11 @@ void	request::printHeaders()
 	std::cout << "=============" << std::endl;
 }
 
-const std::string& request::getContentType()	{ return _contentType;	}
-const std::string& request::getBody()			{ return _body;			}
+const std::string& request::getContentType() const { return _contentType; }
+const std::string& request::getBody() const { return _body; }
+const std::string& request::getMethod() const { return _method; }
+const std::string& request::getPath() const { return _path; }
+const std::string& request::getQuery() const { return _query; }
+
+void request::setBody(std::string body) { _body = body; }
+void request::setContentType(std::string contentType) { _contentType = contentType; }

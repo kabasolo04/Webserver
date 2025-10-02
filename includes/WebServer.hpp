@@ -25,17 +25,20 @@
 #include <netdb.h>        // for getaddrinfo, freeaddrinfo
 #include <sys/stat.h>     // for stat
 #include <dirent.h>       // for opendir, readdir, closedir
+#include <sys/time.h>	  // for time
 
 #include <sstream> 
 #include <fstream>
 #include <exception>
 
-#include "serverConf.hpp"
+#include "location.hpp"
+#include "serverConfig.hpp"
 #include "conf.hpp"
 #include "request.hpp"
 #include "requestHandler.hpp"
 #include "httpResponse.hpp"
 #include "utils.hpp"
 #include "methods.hpp"
+#include "cgi.hpp"
 
 //#include "factory.hpp"

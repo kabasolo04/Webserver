@@ -4,7 +4,7 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { }
+myGet::myGet(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "GET"; }
 
 myGet::~myGet() {}
 
@@ -12,18 +12,33 @@ void myGet::process()
 {
 	std::ifstream file;
 
+	setQuery();		// Strip the query from the path to separate them
 	_path = _server.root() + _path;
 
-	std::cout << "aaaaa" << std::endl;
-
 	if (is_directory(_path))
-		_path += "/index.html";
+	{
+		if (!conf::autoindex())
+			_path += "/index.html";
+		else
+			return generateAutoIndex();
+	}
 
 	if (!is_file(_path))
-		throw httpResponse(NOT_FOUND);
+	{
+		if (!conf::autoindex())
+			throw httpResponse(NOT_FOUND);
+		else
+			return generateAutoIndex();
+	}
+
+	if (isCgiScript(_path))
+	{
+		cgi("/usr/bin/php-cgi");		// adjust interpreter
+		_contentType = "text/html";		// or parse CGI headers if needed
+		return;
+	}
 
 	file.open(_path.c_str());
-
 	if (!file.is_open())
 		throw httpResponse(NOT_FOUND);
 
@@ -36,16 +51,47 @@ void myGet::process()
 	throw httpResponse(this);
 }
 
+void	myGet::setQuery()
+{
+	size_t mark = _path.find("?");
+	if (mark == std::string::npos)
+		_query = "";
+	_query = _path.substr(mark + 1);
+	_path = _path.substr(0, mark);
+}
+
+void	myGet::generateAutoIndex()
+{
+	DIR	*dir;
+
+	if (!_path.empty())
+		dir = opendir(_path.c_str());
+	else
+		dir = opendir(".");
+	if (!dir)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	/* ITERATE THROUGH ALL FOLDERS AND FILES AND WRITE THEM IN THE _BODY IN HTML */
+
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != (void*)0)
+		std::cout << "Archivo o carpeta: " << entry->d_name << std::endl;
+	closedir(dir);
+}
+
 //---------------------------------------------------------------------------//
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { delete req; }
+myPost::myPost(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "POST"; }
 
 myPost::~myPost() {}
 
 void myPost::process()
 {
+	_path = conf::root() + _path;
+	if (isCgiScript(_path))
+		return cgi("/usr/bin/python3");
+
 	if (_headers.find("Content-Type") == _headers.end())
 		throw httpResponse(BAD_REQUEST);
 
@@ -53,9 +99,9 @@ void myPost::process()
 	if (ctype.find("multipart/form-data") != std::string::npos)
 		handleMultipart();
 	else if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-		std::cout << "form" << std::endl; // handleFormUrlEncoded();
+		saveForm(_body);
 	else if (ctype.find("application/json") != std::string::npos)
-		std::cout << "json" << std::endl; // handleJson();
+		saveForm(_body);
 	else
 		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
 
@@ -87,14 +133,14 @@ void myPost::handleMultipart()
 			parts.push_back(part);
 		start = end + boundary.size();
 	}
-
-	for (std::vector<std::string>::const_iterator it = parts.begin(); it != parts.end(); ++it) {
-        const std::string &part = *it;
-        if (part.find("filename=") != std::string::npos)
-            saveFile(part);
-        else
-            std::cout << "multipart form received" << std::endl;
-    }	
+	for (std::vector<std::string>::const_iterator it = parts.begin(); it != parts.end(); ++it)
+	{
+		const std::string &part = *it;
+		if (part.find("filename=") != std::string::npos)
+			saveFile(part);
+		else
+			saveForm(part);
+	}
 }
 
 bool myPost::chunkedCheck()
@@ -164,7 +210,7 @@ bool myPost::check()
 		if (it != std::string::npos)
 		{
 			setHeaderVars();
-			printHeaders();
+			//printHeaders();
 			_headerCheck = 1;
 			_buffer.erase(0, it + 4);
 		}
@@ -198,11 +244,33 @@ bool myPost::check()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { delete req; }
+myDelete::myDelete(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "DELETE"; }
 
 myDelete::~myDelete() {}
 
-void myDelete::process()
+void	myDelete::process()
 {
-
+	_path = conf::root() + _path;
+	if (is_directory(_path))
+		throw httpResponse(FORBIDEN);
+	if (std::remove(_path.c_str()) == 0)
+	{
+		std::string body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
+		std::string response = buildResponse(OK, body, "text/html");
+		write(_fd, response.c_str(), response.size());
+	}
+	else
+	{
+		switch (errno)
+		{
+			case ENOENT: // File doesn't exist
+				throw httpResponse(NOT_FOUND);
+			case EACCES: // Permission denied
+				throw httpResponse(FORBIDEN);
+			case EPERM:  // Operation not permitted
+				throw httpResponse(FORBIDEN);
+			default:     // Something else went wrong
+				throw httpResponse(INTERNAL_SERVER_ERROR);
+		}
+	}
 }

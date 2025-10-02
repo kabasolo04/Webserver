@@ -32,6 +32,7 @@ std::string getReasonPhrase(StatusCode code)
 	switch (code)
 	{
 		case OK: return "OK";
+		case NO_CONTENT: return "No Content";
 		case FOUND: return "Found";
 		case BAD_REQUEST: return "Bad Request";
 		case NOT_FOUND: return "Not Found";
@@ -40,6 +41,7 @@ std::string getReasonPhrase(StatusCode code)
 		case METHOD_NOT_ALLOWED: return "Method Not Allowed";
 		case PAYLOAD_TOO_LARGE: return "Payload Too Large";
 		case UNSUPPORTED_MEDIA_TYPE: return "Unsupported Media Type";
+		case NOT_IMPLEMENTED: return "Not Implemented";
 		case LOL: return "No Fucking Idea Mate";
 		default: return "Unknown";
 	}
@@ -74,4 +76,59 @@ std::string getMimeType(const std::string &path)
 	if (ext == "json") return "application/json";
 
 	return "application/octet-stream";
+}
+
+void saveFile(const std::string &part)
+{
+	size_t sep = part.find("\r\n\r\n");
+	if (sep == std::string::npos)
+		throw httpResponse(BAD_REQUEST);
+	std::string headers = part.substr(0, sep);
+	std::string content = part.substr(sep + 4);
+
+	// Trim trailing CRLF
+	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
+		content.erase(content.size() - 2);
+
+	// Extract filename
+	size_t fnPos = headers.find("filename=");
+	if (fnPos == std::string::npos)
+		throw httpResponse(BAD_REQUEST);
+	size_t q1 = headers.find("\"", fnPos);
+	size_t q2 = headers.find("\"", q1 + 1);
+	std::string filename = conf::root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+
+	std::ofstream out(filename.c_str(), std::ios::binary);
+	if (!out)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	out.write(content.data(), content.size());
+	out.close();
+	std::cout << "Saved file: " << filename << std::endl;
+}
+
+void	saveForm(const std::string &part)
+{
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+	std::stringstream ss;
+	ss << ms;
+	std::string time = ss.str();
+
+	mkdir((conf::root() + "/forms").c_str(), 0755);
+	std::string filename = conf::root() + "/forms/" + time + ".txt";
+		std::ofstream out(filename.c_str(), std::ios::binary);
+	if (!out)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	out.write(part.data(), part.size());
+	out.close();
+	std::cout << "Saved form file: " << filename << std::endl;
+}
+
+std::string	getAbsolutePath(const std::string &path)
+{
+	char absPath[PATH_MAX];
+	if (realpath(path.c_str(), absPath) == NULL)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	return std::string(absPath);
 }

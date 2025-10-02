@@ -3,3 +3,5 @@ webserv
 obj
 *.swp
 .vscode
+forms
+__pycache__

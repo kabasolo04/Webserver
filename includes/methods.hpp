@@ -10,7 +10,11 @@ class myGet: public request
 	public:
 		myGet(request* req, std::map <int, serverConfig*>& servers);
 		~myGet();
-		void		process();
+		void			response(std::ifstream &file);
+		void			setQuery();
+		void			process();
+		bool			check();
+		void			generateAutoIndex();
 };
 
 class myPost: public request
