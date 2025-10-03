@@ -53,6 +53,8 @@ bool	request::readSocket()
 	return (_buffer.find("\r\n\r\n") != std::string::npos);
 }
 
+bool	request::readBody() { return 1; }
+
 void	request::process()	{ throw httpResponse(METHOD_NOT_ALLOWED); }
 
 request*	request::selectMethod(std::map <int, serverConfig*>& servers)

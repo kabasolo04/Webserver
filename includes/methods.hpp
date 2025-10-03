@@ -24,6 +24,8 @@ class myPost: public request
 		bool	chunkedCheck();
 		void	handleMultipart();
 		void	saveFile(const std::string &part);
+		bool	readBody();
+
 
 	public:
 		myPost(request* req, std::map <int, serverConfig*>& servers);

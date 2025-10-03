@@ -34,6 +34,7 @@ class request
 		request& operator = (const request& other);
 
 		bool			readSocket();
+		virtual bool	readBody();
 		virtual void	process();
 
 		request*		selectMethod(std::map <int, serverConfig*>& servers);

@@ -67,7 +67,9 @@ void	requestHandler::readReq(int fd, std::map <int, serverConfig*>& servers)
 	{
 		req = getReq(fd);
 
-		if (req->readSocket() != FINISHED) return; // Goes out only if the request hasnt been fully readed or an error ocurred
+		if (req->readSocket() != FINISHED) return; // Goes out only if the requests header hasnt been fully readed or an error ocurred
+
+		if (req->readBody() != FINISHED) return; // Goes out only if the body hasnt been fully readed or an error ocurred
 
 		if (req->methodSelected() == NONE) req = req->selectMethod(servers); // Turns into the asked method by the requests header
 

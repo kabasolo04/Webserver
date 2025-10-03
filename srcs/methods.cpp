@@ -13,11 +13,11 @@ void myGet::process()
 	std::ifstream file;
 
 	setQuery();		// Strip the query from the path to separate them
-	_path = _server.root() + _path;
+	_path = _server.getRoot() + _path;
 
 	if (is_directory(_path))
 	{
-		if (!conf::autoindex())
+		if (!_server.isAutoindex())
 			_path += "/index.html";
 		else
 			return generateAutoIndex();
@@ -25,7 +25,7 @@ void myGet::process()
 
 	if (!is_file(_path))
 	{
-		if (!conf::autoindex())
+		if (!_server.isAutoindex())
 			throw httpResponse(NOT_FOUND);
 		else
 			return generateAutoIndex();
@@ -88,7 +88,7 @@ myPost::~myPost() {}
 
 void myPost::process()
 {
-	_path = conf::root() + _path;
+	_path = _server.getRoot() + _path;
 	if (isCgiScript(_path))
 		return cgi("/usr/bin/python3");
 
@@ -109,6 +109,29 @@ void myPost::process()
 	std::string response = buildResponse(OK, body, "text/html");
 	write(_fd, response.c_str(), response.size());
 	//throw httpResponse(this);
+}
+
+bool myPost::readBody()
+{
+	if (_headers.find("Content-Length") != _headers.end())
+	{
+		char *endptr = NULL;
+		errno = 0;
+		unsigned long len = std::strtoul(_headers["Content-Length"].c_str(), &endptr, 10);
+		if (errno != 0 || endptr[0] != '\0')
+			throw httpResponse(BAD_REQUEST);
+		if (_buffer.size() >= len)
+		{
+			_body = _buffer.substr(0, len);
+			return true;
+		}
+	}
+	// Chunked transfer
+	else if (_headers.find("Transfer-Encoding") != _headers.end() && _headers["Transfer-Encoding"] == "chunked")
+		return (chunkedCheck());
+	else
+		throw httpResponse(BAD_REQUEST);
+	return false;
 }
 
 void myPost::handleMultipart()
@@ -190,7 +213,7 @@ void myPost::saveFile(const std::string &part)
 	{
 		size_t q1 = headers.find("\"", fnPos);
 		size_t q2 = headers.find("\"", q1 + 1);
-		std::string filename = _server.root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+		std::string filename = _server.getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
 
 		std::ofstream out(filename.c_str(), std::ios::binary);
 		if (out)
@@ -250,7 +273,7 @@ myDelete::~myDelete() {}
 
 void	myDelete::process()
 {
-	_path = conf::root() + _path;
+	_path = _server.getRoot() + _path;
 	if (is_directory(_path))
 		throw httpResponse(FORBIDEN);
 	if (std::remove(_path.c_str()) == 0)
