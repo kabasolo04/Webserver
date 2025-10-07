@@ -93,6 +93,10 @@ void	execChild(const request& req, const std::string &command, int outPipe[2], i
 		envp.push_back(const_cast<char*>(env_str[i].c_str()));
 	envp.push_back(NULL);
 
+	//Chdir so relative pahts work
+	std::string dir = req.getPath().substr(0, req.getPath().find_last_of('/'));
+	chdir(dir.c_str());
+
 	execve(argv[0], argv.data(), envp.data());
 	std::cerr << "execve failed" << std::endl;
 	exit(1);
