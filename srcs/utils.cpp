@@ -94,20 +94,21 @@ void saveFile(const std::string &part)
 	size_t fnPos = headers.find("filename=");
 	if (fnPos == std::string::npos)
 		throw httpResponse(BAD_REQUEST);
-	size_t q1 = headers.find("\"", fnPos);
-	size_t q2 = headers.find("\"", q1 + 1);
-	std::string filename = conf::root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+	//size_t q1 = headers.find("\"", fnPos);
+	//size_t q2 = headers.find("\"", q1 + 1);
+	//std::string filename = conf::root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
 
-	std::ofstream out(filename.c_str(), std::ios::binary);
-	if (!out)
+	//std::ofstream out(filename.c_str(), std::ios::binary);
+	//if (!out)
 		throw httpResponse(INTERNAL_SERVER_ERROR);
-	out.write(content.data(), content.size());
-	out.close();
-	std::cout << "Saved file: " << filename << std::endl;
+	//out.write(content.data(), content.size());
+	//out.close();
+	//std::cout << "Saved file: " << filename << std::endl;
 }
 
 void	saveForm(const std::string &part)
 {
+	(void)part;
 	struct timeval tp;
 	gettimeofday(&tp, NULL);
 	long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
@@ -115,14 +116,14 @@ void	saveForm(const std::string &part)
 	ss << ms;
 	std::string time = ss.str();
 
-	mkdir((conf::root() + "/forms").c_str(), 0755);
-	std::string filename = conf::root() + "/forms/" + time + ".txt";
-		std::ofstream out(filename.c_str(), std::ios::binary);
-	if (!out)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
-	out.write(part.data(), part.size());
-	out.close();
-	std::cout << "Saved form file: " << filename << std::endl;
+	//mkdir((conf::root() + "/forms").c_str(), 0755);
+	//std::string filename = conf::root() + "/forms/" + time + ".txt";
+	//	std::ofstream out(filename.c_str(), std::ios::binary);
+	//if (!out)
+	//	throw httpResponse(INTERNAL_SERVER_ERROR);
+	//out.write(part.data(), part.size());
+	//out.close();
+	//std::cout << "Saved form file: " << filename << std::endl;
 }
 
 std::string	getAbsolutePath(const std::string &path)

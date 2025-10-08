@@ -15,25 +15,30 @@ struct listenEntry
 class serverConfig
 {
 	private:
-		std::vector<listenEntry>		_listen;		// ["127.0.0.1:8080", "192.168.1.10:8080"]
-		std::string						_serverName;
+		std::vector<listenEntry>	_listen;		// ["127.0.0.1:8080", "192.168.1.10:8080"]
+		std::string					_serverName;
+		location					_default;		// Server config variables
+		std::vector<location>		_locations;
 
-		location						_default;		// Server config variables
-		std::map<std::string, location>	_locations;
+		int		setLocation(const std::vector<std::string>& tokens, int i);
+		void	setListen(TOKEN_IT& it);
+		void	setServerName(TOKEN_IT& it);
+		void	setLocation(TOKEN_IT& it, TOKEN_IT& end);
 
 	public:
 		serverConfig();
+		serverConfig(const serverConfig& other);
 		~serverConfig();
-
+		
+		serverConfig& operator=(const serverConfig& other);
+		
 		std::vector<listenEntry>::iterator	listenBegin();
 		std::vector<listenEntry>::iterator	listenEnd();
 
-		size_t parseServer(std::vector<std::string> tokens, size_t i);
+		serverConfig& parseServer(TOKEN_IT& it, TOKEN_IT& end);
 
+		location&	getLocation(std::string path);
 		const std::string&	serverName();
-		const std::string&	root();
-		const size_t&		bodySize();
-		const std::string&	errorPages(int errorCode);
 };
 
 /*

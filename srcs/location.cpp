@@ -1,7 +1,6 @@
 #include "WebServer.hpp"
 
 location::location():
-	//path(empty)
 	//root(empty),
 	//index(empty),
 	//methods(empty)
@@ -16,7 +15,22 @@ location::location():
 	{}
 
 location::location(const location& _default):
-	//path(empty)
+	_path(_default._path),
+	_root(_default._root),
+	_index(_default._index),
+	_methods(_default._methods),
+	_autoindex(_default._autoindex),
+	_errorPages(_default._errorPages),
+	_headerSize(_default._headerSize),
+	_bodySize(_default._bodySize),
+	_uploadEnable(_default._uploadEnable),
+	_uploadStore(_default._uploadStore),
+	_cgiRoot(_default._cgiRoot),
+	_cgiExtensions(_default._cgiExtensions)
+	{}
+
+location::location(const location& _default, int lol):
+	//_path(_default._path),
 	_root(_default._root),
 	_index(_default._index),
 	//methods(empty)
@@ -28,50 +42,67 @@ location::location(const location& _default):
 	//uploadStore(empty)
 	//cgiExtensions(empty)
 	//cgiRoot(empty)
-	{}
+	{ (void)lol; }
 
 location::~location() {}
 
-#define TOKENS const std::vector<std::string>& tokens, int i
+void	location::setRoot(TOKEN_IT& it, TOKEN_IT& end)			{ _root = *it;												it++;	(void)end;}
+void	location::setIndex(TOKEN_IT& it, TOKEN_IT& end)			{ _index = *it;												it++;	(void)end;}
+void	location::setAutoindex(TOKEN_IT& it, TOKEN_IT& end)		{ _autoindex = (*it == "on" || *it == "1");					it++;	(void)end;}
+void	location::setHeaderSize(TOKEN_IT& it, TOKEN_IT& end)	{ _headerSize = static_cast<size_t>(atoi((*it).c_str()));	it++;	(void)end;}
+void	location::setBodySize(TOKEN_IT& it, TOKEN_IT& end)		{ _bodySize = static_cast<size_t>(atoi((*it).c_str()));		it++;	(void)end;}
+void	location::setUploadEnable(TOKEN_IT& it, TOKEN_IT& end)	{ _uploadEnable = (*it == "on" || *it == "1");				it++;	(void)end;}
+void	location::setUploadStore(TOKEN_IT& it, TOKEN_IT& end)	{ _uploadStore = *it;										it++;	(void)end;}
+void	location::setCgiRoot(TOKEN_IT& it, TOKEN_IT& end)		{ _cgiRoot = *it;											it++;	(void)end;}
 
-int	location::setPath(TOKENS)			{ _path = tokens[i];											return (1); }
-int	location::setRoot(TOKENS)			{ _root = tokens[i];											return (1); }
-int	location::setIndex(TOKENS)			{ _index = tokens[i];											return (1); }
-int	location::setAutoindex(TOKENS)		{ _autoindex = (tokens[i] == "on" || tokens[i] == "1");			return (1);	}
-int	location::setHeaderSize(TOKENS)		{ _headerSize = static_cast<size_t>(atoi(tokens[i].c_str()));	return (1); }
-int	location::setBodySize(TOKENS)		{ _bodySize = static_cast<size_t>(atoi(tokens[i].c_str()));		return (1);	}
-int	location::setUploadEnable(TOKENS)	{ _uploadEnable = (tokens[i] == "on" || tokens[i] == "1");		return (1);	}
-int	location::setUploadStore(TOKENS)	{ _uploadStore = tokens[i];										return (1);	}
-int	location::setCgiRoot(TOKENS)		{ _cgiRoot = tokens[i];											return (1); }
-
-int	location::addMethods(TOKENS)
+void	location::addMethods(TOKEN_IT& it, TOKEN_IT& end)
 {
-
+	// allow_methods GET POST DELETE;
+	while (it != end && *it != ";")
+	{
+		if (*it != "GET" && *it != "POST" && *it != "DELETE")
+			throw std::runtime_error("The only supported methods are GET POST and DELETE | location.cpp - addMethods()");
+		_methods.push_back(*it);
+		it ++;
+	}
 }
 
-int	location::addErrorPage(TOKENS)
+void	location::addErrorPage(TOKEN_IT& it, TOKEN_IT& end)
 {
+	// error_page 404 /errors/404.html;
+	int code = atoi((*it).c_str());
 
+	if (++it == end)
+		throw std::runtime_error("error_page expects <code> <path> | location.cpp - addMethods()");
+
+	_errorPages[code] = *it++;
 }
 
-int	location::addCgiExtension(TOKENS)
+void	location::addCgiExtension(TOKEN_IT& it, TOKEN_IT& end)
 {
+	// cgi_extension .php /usr/bin/php-cgi;
+	std::string ext = *it;
 	
+	if (++it == end)
+		throw std::runtime_error("cgi_extension expects <extension> <binary> | location.cpp | addCgiExtension()");
+
+	_cgiExtensions[ext] = *it;
 }
+
+void	location::setPath(const std::string& path)	{ _path = path;}
 
 struct DirectiveHandler
 {
-    const char* name;
-    int (location::*handler)(TOKENS);
+	const char* name;
+	void (location::*handler)(TOKEN_IT& it, TOKEN_IT& end);
 };
 
-#define HANDLER_SIZE 12
+#define HANDLER_SIZE 11
 
-int location::handleDirective(const std::string& key, const std::vector<std::string>& tokens, size_t i)
+void location::handleDirective(const std::string& key, TOKEN_IT& it, TOKEN_IT& end)
 {
 	static DirectiveHandler g_directives[HANDLER_SIZE] =
 	{
-		{"path",					&location::setPath},
 		{"root",					&location::setRoot},
 		{"index",					&location::setIndex},
 		{"autoindex",				&location::setAutoindex},
@@ -85,12 +116,12 @@ int location::handleDirective(const std::string& key, const std::vector<std::str
 		{"cgi_extension",			&location::addCgiExtension}
 	};
 
-	if (tokens.size() < 2 + i)
-		throw std::runtime_error("directive '" + key + "' expects arguments | location.cpp - handleDirective()");
+	if (it == end)
+		throw std::runtime_error("Directive '" + key + "' expects arguments | location.cpp - handleDirective()");
 
-	for (int j = 0; j < HANDLER_SIZE; j ++)
-		if (g_directives[j].name == key)
-			return (this->*g_directives[j].handler)(tokens, i);
+	for (int i = 0; i < HANDLER_SIZE; i ++)
+		if (g_directives[i].name == key)
+			return (this->*g_directives[i].handler)(it, end);
 
 	throw std::runtime_error("Unknown directive: '" + key + "' | location.cpp - handleDirective()");
 }
@@ -98,16 +129,32 @@ int location::handleDirective(const std::string& key, const std::vector<std::str
 const std::string& 				location::getPath() const		{ return _path;			}
 const std::string& 				location::getRoot() const		{ return _root;			}
 const std::string& 				location::getIndex() const		{ return _index;		}
-const std::vector<std::string>&	location::getMethods() const	{ return _methods;		}
-bool							location::isAutoindex() const	{ return _autoindex;	}
-		
+
+bool	location::methodAllowed(std::string method) const
+{
+	std::vector<std::string>::const_iterator it = _methods.begin();
+
+	//std::cout << "Searching for: " << method << " |" << std::endl;
+
+	while (it != _methods.end())
+	{
+		//std::cout << "MTHOD: " << *it << " |" << std::endl;
+		if (*it == method)
+			return true;
+		it++;
+	}
+	return false;
+}
+
+bool	location::isAutoindex() const	{ return _autoindex;	}
+
 const std::map<int, std::string>& 	location::getErrorPages() const	{ return _errorPages; }
 		
-size_t	location::getBodySize() const	{ return _bodySize;		}
-size_t	location::getHeaderSize() const	{ return _headerSize;	}
+size_t				location::getBodySize() const	{ return _bodySize;		}
+size_t				location::getHeaderSize() const	{ return _headerSize;	}
 		
 bool				location::isUploadEnabled() const	{ return _uploadEnable; }
 const std::string&	location::getUploadStore() const	{ return _uploadStore; }
 		
-const	std::string& 						location::getCgiRoot() const		{ return _cgiRoot; }
+const std::string& 							location::getCgiRoot() const		{ return _cgiRoot; }
 const std::map<std::string, std::string>&	location::getCgiExtensions() const	{ return _cgiExtensions; }

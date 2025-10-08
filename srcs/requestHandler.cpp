@@ -16,60 +16,86 @@ void	requestHandler::delReq(int fd)
 		_requests.erase(it);
 	}
 }
-/*
-request*	createMethod(int fd, serverConfig& server)
+
+std::string readLine(int fd)
 {
-	char buffer[7];
-	ssize_t len = read(fd, buffer, sizeof(buffer));
+	std::string line;
+	char c;
 
-	if (len < 0)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
-	if (len == 0)
-		throw std::runtime_error("Client Disconnected");
+	while (true) // Read until CRLF
+	{
+		ssize_t n = read(fd, &c, 1);
+		if (n < 0)
+			throw httpResponse(INTERNAL_SERVER_ERROR);
+		if (n == 0)
+			throw std::runtime_error("Client Disconnected");
 
-	std::string raw(buffer);
-	size_t pos = raw.find(' ');
+		line += c;
 
-	if (pos == std::string::npos)
+		if (line.size() >= 2 && line[line.size() - 2] == '\r' && line[line.size() - 1] == '\n')
+		{
+			line.erase(line.end() - 2, line.end()); // Remove the CRLF
+			break;
+		}
+	}
+	return line;
+}
+
+request* createMethod(int fd, serverConfig& server)
+{
+	std::istringstream iss(readLine(fd)); // Split by spaces
+	std::string method, path, protocol;
+
+	if (!(iss >> method >> path >> protocol))
 		throw httpResponse(BAD_REQUEST);
 
-	std::string method = raw.substr(0, pos);
+	// (optional) validate HTTP version
+	if (protocol != "HTTP/1.0" && protocol != "HTTP/1.1")
+		throw httpResponse(LOL); // Gotta make a throw
 
-//	if (!conf::methodAllowed(method))
-//		throw httpResponse(METHOD_NOT_ALLOWED);
+	location&  temp = server.getLocation(path);
+
+	if  (!temp.methodAllowed(method))
+		throw httpResponse(METHOD_NOT_ALLOWED);
+
 	if (method == "GET")
-		return new myGet(fd, raw, server);
+		return new myGet(fd, path, temp);
 	if (method == "POST")
-		return new myPost(fd, raw, server);
+		return new myPost(fd, path, temp);
 	if (method == "DELETE")
-		return new myDelete(fd, raw, server);
+		return new myDelete(fd, path, temp);
+
 	throw httpResponse(METHOD_NOT_ALLOWED);
 }
-*/
 
-request*&	requestHandler::getReq(int fd)
+request*&	requestHandler::getReq(int fd, serverConfig& server)
 {
 	std::map<int, request*>::iterator it = _requests.find(fd);
 
 	if (it == _requests.end())
 	{
 		delReq(fd);
-		_requests[fd] = new request(fd);
+		_requests[fd] = createMethod(fd, server);
 	}
 	return (_requests[fd]);
 }
 
-void	requestHandler::readReq(int fd, std::map <int, serverConfig*>& servers)
+void	requestHandler::readReq(int fd, serverConfig& server)
 {
 	request* req;
 
+	location& temp = server.getLocation("gefgdfg");
+
+	if (!temp.methodAllowed("GET"))
+		std::cout << "TE ENCONTRE MARICON" << std::endl;
+
 	try
 	{
-		req = getReq(fd);
+		req = getReq(fd, server);
 
 		if (req->readSocket() != FINISHED) return; // Goes out only if the request hasnt been fully readed or an error ocurred
 
-		if (req->methodSelected() == NONE) req = req->selectMethod(servers); // Turns into the asked method by the requests header
+		//if (readBody != FINISHED) return;
 
 		return req->process();	// Each method does its thing
 	}

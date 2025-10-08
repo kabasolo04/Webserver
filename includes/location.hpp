@@ -6,6 +6,7 @@ class location
 {
 	private:
 		std::string							_path;
+
 		std::string							_root;
 		std::string							_index;
 		std::vector<std::string>			_methods;
@@ -22,35 +23,38 @@ class location
 		std::string							_cgiRoot;
 		std::map<std::string, std::string>	_cgiExtensions;
 
-		int	setPath(const std::vector<std::string>& tokens, int i);
-		int	setRoot(const std::vector<std::string>& tokens, int i);
-		int	setIndex(const std::vector<std::string>& tokens, int i);
-		int	addMethods(const std::vector<std::string>& tokens, int i);
-		int	setAutoindex(const std::vector<std::string>& tokens, int i);
+		void	setRoot(TOKEN_IT& it, TOKEN_IT& end);
+		void	setIndex(TOKEN_IT& it, TOKEN_IT& end);
+		void	addMethods(TOKEN_IT& it, TOKEN_IT& end);
+		void	setAutoindex(TOKEN_IT& it, TOKEN_IT& end);
 
-		int	addErrorPage(const std::vector<std::string>& tokens, int i);
+		void	addErrorPage(TOKEN_IT& it, TOKEN_IT& end);
 
-		int	setHeaderSize(const std::vector<std::string>& tokens, int i);
-		int	setBodySize(const std::vector<std::string>& tokens, int i);
+		void	setHeaderSize(TOKEN_IT& it, TOKEN_IT& end);
+		void	setBodySize(TOKEN_IT& it, TOKEN_IT& end);
 
-		int	setUploadEnable(const std::vector<std::string>& tokens, int i);
-		int	setUploadStore(const std::vector<std::string>& tokens, int i);
+		void	setUploadEnable(TOKEN_IT& it, TOKEN_IT& end);
+		void	setUploadStore(TOKEN_IT& it, TOKEN_IT& end);
 
-		int	setCgiRoot(const std::vector<std::string>& tokens, int i);
-		int	addCgiExtension(const std::vector<std::string>& tokens, int i);
+		void	setCgiRoot(TOKEN_IT& it, TOKEN_IT& end);
+		void	addCgiExtension(TOKEN_IT& it, TOKEN_IT& end);
 
 
 	public:
 		location();
 		location(const location& _default);
+		location(const location& _default, int lol);
 		~location();
+	
+		void	setPath(const std::string& path);
+		void 	handleDirective(const std::string& key, TOKEN_IT& it, TOKEN_IT& end);
 
-		int handleDirective(const std::string& key, const std::vector<std::string>& tokens, size_t i);
-
+		// GETTERS
+		
 		const std::string& 				getPath() const;	
 		const std::string& 				getRoot() const;
 		const std::string& 				getIndex() const;
-		const std::vector<std::string>&	getMethods() const;
+		bool							methodAllowed(std::string method) const;
 		bool							isAutoindex() const;
 
 		const std::map<int, std::string>& 	getErrorPages() const;

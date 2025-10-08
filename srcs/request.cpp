@@ -1,20 +1,8 @@
 #include "WebServer.hpp"
 
-request::request(int fd): _fd(fd), _methodSelected(0) {}
-
-request::request(request& other, std::map <int, serverConfig*>& servers): _methodSelected(1)
+request::request(int fd, std::string target, location& loc): _fd(fd), _location(loc)
 {
-	*this = other;
-	std::map<int, serverConfig*>::iterator serverIt = servers.begin();
-	for (; serverIt != servers.end(); ++serverIt)
-	{
-		serverConfig*& server = serverIt->second;
-		std::vector<listenEntry>::iterator listenIt = server->listenBegin();
-		for (; listenIt != server->listenEnd(); ++listenIt)
-			if (listenIt->_fd == _fd)
-				_server = *server;
-	}
-	setHeaderVars();
+	_path = _location.getRoot() + target.substr(_location.getPath().size());
 }
 
 request::~request() {}
@@ -30,7 +18,7 @@ request&	request::operator = (const request& other)
 		_headers = other._headers;
 		_body = other._body;
 		_contentType = other._contentType;
-		_server = other._server;
+		_location = other._location;
 	}
 	return (*this);
 }
@@ -51,28 +39,8 @@ bool	request::readSocket()
 		return (0);
 
 	return (_buffer.find("\r\n\r\n") != std::string::npos);
+	//setHeaderVars();
 }
-
-void	request::process()	{ throw httpResponse(METHOD_NOT_ALLOWED); }
-
-request*	request::selectMethod(std::map <int, serverConfig*>& servers)
-{
-	size_t pos = _buffer.find(' ');
-
-	if (pos == std::string::npos)
-		throw httpResponse(BAD_REQUEST);
-
-	std::string method = _buffer.substr(0, pos);
-	if (method == "GET")
-		return (new myGet(this, servers));
-	if (method == "POST")
-		return (new myPost(this, servers));
-	if (method == "DELETE")
-		return (new myDelete(this, servers));
-	return this;
-}
-
-bool	request::methodSelected()	{ return _methodSelected; }
 
 /* Gets the path and the protocol version from the request line */
 void	request::setReqLineVars()

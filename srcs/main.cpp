@@ -14,7 +14,6 @@ void myAccept(std::map <int, serverConfig*>& serverMap, int portFd, serverConfig
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-				//std::cout << "Yoooh new request" << std::endl;
 				break; // no more clients
 			}
 			else
@@ -36,18 +35,17 @@ void myAccept(std::map <int, serverConfig*>& serverMap, int portFd, serverConfig
 bool	newRequest(int fd, std::map <int, serverConfig*>& serverMap)
 {
 	std::vector<serverConfig>::iterator serverIt = conf::serverBegin();
+
 	for (; serverIt != conf::serverEnd(); ++serverIt)
 	{
 		serverConfig& server = *serverIt;
-
 		std::vector<listenEntry>::iterator listenIt = server.listenBegin();
+	
 		for (; listenIt != server.listenEnd(); ++listenIt)
 			if (listenIt->_fd == fd)
-			{
-				std::cout << "incomin request" << std::endl;
 				return (myAccept(serverMap, fd, server), true);
-			}
-		}
+	}
+
 	return false;
 }
 
@@ -75,7 +73,14 @@ int main(int argc, char **argv)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
 
 		for (int i = 0; i < n; i++)
+		{
 			if (!newRequest(events[i].data.fd, serverMap))
-				requestHandler::readReq(events[i].data.fd, serverMap);
+			{
+				serverConfig* a = serverMap[events[i].data.fd];
+
+				requestHandler::readReq(events[i].data.fd, *a);
+			}
+
+		}
 	}
 }

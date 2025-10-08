@@ -4,7 +4,7 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "GET"; }
+myGet::myGet(int fd, std::string target, location& loc): request(fd, target, loc) { _method = "GET"; }
 
 myGet::~myGet() {}
 
@@ -13,19 +13,18 @@ void myGet::process()
 	std::ifstream file;
 
 	setQuery();		// Strip the query from the path to separate them
-	_path = _server.root() + _path;
 
 	if (is_directory(_path))
 	{
-		if (!conf::autoindex())
+		if (!_location.isAutoindex())
 			_path += "/index.html";
 		else
-			return generateAutoIndex();
+			generateAutoIndex();
 	}
 
 	if (!is_file(_path))
 	{
-		if (!conf::autoindex())
+		if (!_location.isAutoindex())
 			throw httpResponse(NOT_FOUND);
 		else
 			return generateAutoIndex();
@@ -82,13 +81,12 @@ void	myGet::generateAutoIndex()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "POST"; }
+myPost::myPost(int fd, std::string target, location& loc): request(fd, target, loc) { _method = "POST"; }
 
 myPost::~myPost() {}
 
 void myPost::process()
 {
-	_path = conf::root() + _path;
 	if (isCgiScript(_path))
 		return cgi("/usr/bin/python3");
 
@@ -190,7 +188,7 @@ void myPost::saveFile(const std::string &part)
 	{
 		size_t q1 = headers.find("\"", fnPos);
 		size_t q2 = headers.find("\"", q1 + 1);
-		std::string filename = _server.root() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+		std::string filename = _location.getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
 
 		std::ofstream out(filename.c_str(), std::ios::binary);
 		if (out)
@@ -244,13 +242,12 @@ bool myPost::check()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "DELETE"; }
+myDelete::myDelete(int fd, std::string target, location& loc): request(fd, target, loc) { _method = "DELETE"; }
 
 myDelete::~myDelete() {}
 
 void	myDelete::process()
 {
-	_path = conf::root() + _path;
 	if (is_directory(_path))
 		throw httpResponse(FORBIDEN);
 	if (std::remove(_path.c_str()) == 0)
