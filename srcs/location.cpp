@@ -42,7 +42,16 @@ location::location(const location& _default, int lol):
 	//uploadStore(empty)
 	//cgiExtensions(empty)
 	//cgiRoot(empty)
-	{ (void)lol; }
+	{
+		(void)lol;
+		_errorPages[400] = "/errors/400.html";
+		_errorPages[403] = "/errors/403.html";
+		_errorPages[404] = "/errors/404.html";
+		_errorPages[405] = "/errors/405.html";
+		_errorPages[500] = "/errors/500.html";
+		_errorPages[502] = "/errors/502.html";
+		_errorPages[504] = "/errors/504.html";
+	}
 
 location::~location() {}
 

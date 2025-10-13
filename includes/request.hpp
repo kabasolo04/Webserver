@@ -17,8 +17,8 @@ class request
 		std::string							_contentType;
 		std::string							_query;
 		
-		std::string							_target;
-		location							_location;
+		std::string&						_target;
+		location&							_location;
 		
 		void		setReqLineVars();
 		void		setHeaderVars();
@@ -40,7 +40,6 @@ class request
 		const std::string& getPath() const;
 		const std::string& getQuery() const;
 
-   	
 		void	setBody(std::string body);
 		void	setContentType(std::string contentType);
 		void	cgi(std::string command);

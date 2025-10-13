@@ -23,7 +23,6 @@ class httpResponse: public std::exception
 {
 	private:
 		StatusCode	_statusCode;
-		std::string	_message;
 		std::string	_contentType;
 		std::string _body;
 
@@ -31,6 +30,7 @@ class httpResponse: public std::exception
 
 	public:
 		httpResponse(StatusCode code);
+		//httpResponse(StatusCode code, location& loc);
 		httpResponse(request* req);
 		virtual ~httpResponse() throw() {}
 

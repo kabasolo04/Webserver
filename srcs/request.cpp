@@ -1,6 +1,6 @@
 #include "WebServer.hpp"
 
-request::request(int fd, std::string target, location& loc): _fd(fd), _location(loc)
+request::request(int fd, std::string target, location& loc): _fd(fd), _target(target), _location(loc)
 {
 	_path = _location.getRoot() + target.substr(_location.getPath().size());
 }
@@ -31,7 +31,6 @@ bool	request::readSocket()
 
 	if (len > 0)
 		_buffer.append(buffer, len);
-
 	else if (len == 0)
 		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
 

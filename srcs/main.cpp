@@ -76,9 +76,7 @@ int main(int argc, char **argv)
 		{
 			if (!newRequest(events[i].data.fd, serverMap))
 			{
-				serverConfig* a = serverMap[events[i].data.fd];
-
-				requestHandler::readReq(events[i].data.fd, *a);
+				requestHandler::readReq(events[i].data.fd, *serverMap[events[i].data.fd]);
 			}
 
 		}

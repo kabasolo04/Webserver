@@ -55,7 +55,7 @@ request* createMethod(int fd, serverConfig& server)
 
 	location&  temp = server.getLocation(path);
 
-	if  (!temp.methodAllowed(method))
+	if (!temp.methodAllowed(method))
 		throw httpResponse(METHOD_NOT_ALLOWED);
 
 	if (method == "GET")
@@ -82,20 +82,15 @@ request*&	requestHandler::getReq(int fd, serverConfig& server)
 
 void	requestHandler::readReq(int fd, serverConfig& server)
 {
-	request* req;
-
-	location& temp = server.getLocation("gefgdfg");
-
-	if (!temp.methodAllowed("GET"))
-		std::cout << "TE ENCONTRE MARICON" << std::endl;
-
 	try
 	{
-		req = getReq(fd, server);
+		request* req = getReq(fd, server);
 
 		if (req->readSocket() != FINISHED) return; // Goes out only if the request hasnt been fully readed or an error ocurred
 
-		//if (readBody != FINISHED) return;
+		//if (req->readBody != FINISHED) return;
+
+		//if (req->process != FINISHED) return;
 
 		return req->process();	// Each method does its thing
 	}
