@@ -3,18 +3,27 @@
 httpResponse::httpResponse(StatusCode code)
 {
 	_statusCode = code;
-	_message = getReasonPhrase(_statusCode);
 	_contentType = "text/html";
 
 	std::stringstream temp;
-	temp << "<h1>" << code << " " << _message << "</h1>";
+	temp << "<h1>" << code << " " << getReasonPhrase(_statusCode) << "</h1>";
 	_body = temp.str();
 };
+/*
+httpResponse::httpResponse(StatusCode code, location& loc)
+{
+	_statusCode = code;
+	_contentType = "text/html";
+
+	std::stringstream temp;
+	temp << "<h1>" << code << " " << getReasonPhrase(_statusCode) << "</h1>";
+	_body = temp.str();
+}
+*/
 
 httpResponse::httpResponse(request* req)
 {	
 	_statusCode = OK;
-	_message = getReasonPhrase(_statusCode);
 	_contentType = req->getContentType();
 	_body = req->getBody();
 };

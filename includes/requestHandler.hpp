@@ -10,10 +10,10 @@ class requestHandler
 		requestHandler();
 		~requestHandler();
 
-		static request*&	getReq(int fd);
+		static request*&	getReq(int fd, serverConfig& server);
 		
 	public:
-		static void			readReq(int fd, std::map <int, serverConfig*>& server);
+		static void			readReq(int fd, serverConfig& server);
 		static void			delReq(int fd);
 };
 

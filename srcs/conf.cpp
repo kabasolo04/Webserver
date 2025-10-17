@@ -56,16 +56,43 @@ void	conf::parseFile(std::string filename)
 	if (!file)
 		throw std::runtime_error("Config file not found | setConf.cpp - parseFile()");
 
+	_epfd = epoll_create1(0);
+	if (_epfd == -1)
+		throw std::runtime_error("epoll_create | setConf.cpp - parseFile()");
+	
 	std::ostringstream oss;
 	oss << file.rdbuf();	// Reads the whole file
 	std::string content = oss.str();
 
 	std::vector<std::string> tokens = tokenize(content);
 
-	_epfd = epoll_create1(0);
-	if (_epfd == -1)
-		throw std::runtime_error("epoll_create | setConf.cpp - parseFile()");
+	TOKEN_IT it = tokens.begin();
+	TOKEN_IT end = tokens.end();
 
+	while (it != end)
+	{
+		if (*it == "server")
+		{
+			std::cout << "I Found A Server" << std::endl;
+			it ++;
+			if (it == end || *it != "{")
+				throw std::runtime_error("Expected '{' after 'server' | setConf.cpp - parseFile()");
+
+			it ++; // move past '{'
+
+			_servers.push_back(serverConfig().parseServer(it, end));
+
+			//_servers.push_back((serverConfig tmp, tmp.parseServer(it, end), tmp));
+
+			//serverConfig srv;       
+			//srv.parseServer(it, end); // 'it' advances inside parseServer
+			//_servers.push_back(srv);
+		}
+		it ++;
+	}
+}
+
+/*
 	for (size_t i = 0; i < tokens.size(); ++i)
 	{
 		if (tokens[i] == "server")
@@ -81,4 +108,4 @@ void	conf::parseFile(std::string filename)
 				throw std::runtime_error("Expected '{' after 'server' | setConf.cpp - parseFile()");
 		}
 	}
-}
+*/

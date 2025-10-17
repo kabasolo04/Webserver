@@ -2,4 +2,4 @@
 
 #include "WebServer.hpp"
 
-bool		isCgiScript(std::string filename);
+std::string		isCgiScript(std::string filename);

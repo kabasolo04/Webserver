@@ -1,5 +1,7 @@
 #pragma once
 
+#include "WebServer.hpp"
+
 enum StatusCode
 {
 	OK = 200,
@@ -17,13 +19,10 @@ enum StatusCode
 
 }; //Whenever a code is added you must also add it in utils.cpp - getReasonPhrase()
 
-#include "WebServer.hpp"
-
 class httpResponse: public std::exception
 {
 	private:
 		StatusCode	_statusCode;
-		std::string	_message;
 		std::string	_contentType;
 		std::string _body;
 
@@ -31,6 +30,7 @@ class httpResponse: public std::exception
 
 	public:
 		httpResponse(StatusCode code);
+		//httpResponse(StatusCode code, location& loc);
 		httpResponse(request* req);
 		virtual ~httpResponse() throw() {}
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#define TOKEN_IT std::vector<std::string>::iterator
+
 // C library headers
 #include <cerrno>     // for errno
 #include <cstdio>     // for printf, FILE

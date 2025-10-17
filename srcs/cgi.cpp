@@ -1,13 +1,13 @@
 #include "WebServer.hpp"
 
-bool	isCgiScript(std::string filename)
+std::string	isCgiScript(std::string filename)
 {
 	size_t pos = filename.find_last_of(".");
 	if (pos == std::string::npos) throw httpResponse(BAD_REQUEST);
 	std::string extension = filename.substr(pos + 1);
-	if (extension != "php" && extension != "py")
-		return false;
-	return true;
+	if (extension == "php") return "/usr/bin/php-cgi";
+	if (extension == "py") return "/usr/bin/python3";
+	return "";
 }
 
 std::string	read_from_pipe(int fd) {
@@ -40,6 +40,8 @@ std::vector<char*> buildArgv(const std::string& command, const std::string& path
 	else if (command.find("python") != std::string::npos)
 	{
 		argv.push_back(const_cast<char*>(command.c_str()));
+		argv.push_back(const_cast<char*>("-W"));
+		argv.push_back(const_cast<char*>("ignore"));
 		argv.push_back(const_cast<char*>(path.c_str()));
 	}
 	else
@@ -122,7 +124,6 @@ void handleParent(request& req, pid_t child, int outPipe[2], int inPipe[2])
 	waitpid(child, &status, 0);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 		throw httpResponse(INTERNAL_SERVER_ERROR);
-
 	// Split headers and body
 	size_t headerEnd = response.find("\r\n\r\n");
 	std::string cgiHeaders;
@@ -148,6 +149,8 @@ void handleParent(request& req, pid_t child, int outPipe[2], int inPipe[2])
 
 void	request::cgi(std::string command)
 {
+	if (command == "")
+		throw httpResponse(FORBIDEN);
 	int outPipe[2];
 	if (pipe(outPipe) == -1)
 		throw httpResponse(INTERNAL_SERVER_ERROR);

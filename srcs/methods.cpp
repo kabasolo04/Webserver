@@ -4,7 +4,7 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "GET"; }
+myGet::myGet(int fd, std::string target, location& loc, std::string reqLine): request(fd, target, loc) { _method = "GET"; _buffer.append(reqLine);}
 
 myGet::~myGet() {}
 
@@ -13,29 +13,27 @@ void myGet::process()
 	std::ifstream file;
 
 	setQuery();		// Strip the query from the path to separate them
-	_path = _server.getRoot() + _path;
 
 	if (is_directory(_path))
 	{
-		if (!_server.isAutoindex())
+		if (!_location.isAutoindex())
 			_path += "/index.html";
 		else
-			return generateAutoIndex();
+			generateAutoIndex();
 	}
-
 	if (!is_file(_path))
 	{
-		if (!_server.isAutoindex())
+		if (!_location.isAutoindex())
 			throw httpResponse(NOT_FOUND);
 		else
 			return generateAutoIndex();
 	}
 
-	if (isCgiScript(_path))
+	if (isCgiScript(_path) != "")
 	{
-		cgi("/usr/bin/php-cgi");		// adjust interpreter
+		cgi(isCgiScript(_path));		// adjust interpreter
 		_contentType = "text/html";		// or parse CGI headers if needed
-		return;
+		return (throw httpResponse(this));
 	}
 
 	file.open(_path.c_str());
@@ -82,16 +80,14 @@ void	myGet::generateAutoIndex()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "POST"; }
+myPost::myPost(int fd, std::string target, location& loc, std::string reqLine): request(fd, target, loc) { _method = "POST"; _buffer.append(reqLine);}
 
 myPost::~myPost() {}
 
 void myPost::process()
 {
-	_path = _server.getRoot() + _path;
-	if (isCgiScript(_path))
-		return cgi("/usr/bin/python3");
-
+	if (isCgiScript(_path) != "")
+		return (cgi(isCgiScript(_path)), throw httpResponse(this));
 	if (_headers.find("Content-Type") == _headers.end())
 		throw httpResponse(BAD_REQUEST);
 
@@ -99,16 +95,13 @@ void myPost::process()
 	if (ctype.find("multipart/form-data") != std::string::npos)
 		handleMultipart();
 	else if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-		saveForm(_body);
+		saveForm(_body, &_location);
 	else if (ctype.find("application/json") != std::string::npos)
-		saveForm(_body);
+		saveForm(_body, &_location);
 	else
 		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
-
-	std::string body = "<html><body><h1>Upload successful!</h1></body></html>";
-	std::string response = buildResponse(OK, body, "text/html");
-	write(_fd, response.c_str(), response.size());
-	//throw httpResponse(this);
+	_body = "<html><body><h1>Upload successful!</h1></body></html>";
+	throw httpResponse(this);
 }
 
 bool myPost::readBody()
@@ -120,49 +113,56 @@ bool myPost::readBody()
 		unsigned long len = std::strtoul(_headers["Content-Length"].c_str(), &endptr, 10);
 		if (errno != 0 || endptr[0] != '\0')
 			throw httpResponse(BAD_REQUEST);
-		if (_buffer.size() >= len)
+
+		size_t bodyStart = _buffer.find("\r\n\r\n");
+		if (bodyStart == std::string::npos)
+			return false; // headers not finished yet
+		bodyStart += 4; // skip CRLFCRLF
+		if (_buffer.size() >= bodyStart + len)
 		{
-			_body = _buffer.substr(0, len);
+			_body = _buffer.substr(bodyStart, len);
 			return true;
 		}
+		return false; // body not fully read yet
 	}
-	// Chunked transfer
-	else if (_headers.find("Transfer-Encoding") != _headers.end() && _headers["Transfer-Encoding"] == "chunked")
-		return (chunkedCheck());
+	else if (_headers.find("Transfer-Encoding") != _headers.end()
+		&& _headers["Transfer-Encoding"] == "chunked")
+		return chunkedCheck();
 	else
 		throw httpResponse(BAD_REQUEST);
-	return false;
 }
 
 void myPost::handleMultipart()
 {
-	std::string boundary;
-	size_t pos = _headers["Content-Type"].find("boundary=");
-	if (pos != std::string::npos)
-		boundary = "--" + _headers["Content-Type"].substr(pos + 9); // prepend --
-	else
+	size_t p = _headers["Content-Type"].find("boundary=");
+	if (p == std::string::npos)
 		throw httpResponse(BAD_REQUEST);
+	std::string boundary = "--" + _headers["Content-Type"].substr(p + 9);
 
-	std::vector<std::string> parts;
-	size_t start = 0;
+	size_t start = _body.find(boundary);
+	if (start == std::string::npos)
+		throw httpResponse(BAD_REQUEST);
+	start += boundary.size() + 2; // skip boundary + CRLF
 
 	while (true)
 	{
-		size_t end = _body.find(boundary, start);
-		if (end == std::string::npos)
+		size_t next = _body.find(boundary, start);
+		bool last = false;
+		if (next == std::string::npos)
+		{
+			next = _body.find(boundary + "--", start);
+			if (next == std::string::npos)
+				next = _body.size();
+			last = true;
+		}
+		std::string part = _body.substr(start, next - start);
+		if (last)
 			break;
-		std::string part = _buffer.substr(start, end - start);
-		if (!part.empty())
-			parts.push_back(part);
-		start = end + boundary.size();
-	}
-	for (std::vector<std::string>::const_iterator it = parts.begin(); it != parts.end(); ++it)
-	{
-		const std::string &part = *it;
 		if (part.find("filename=") != std::string::npos)
-			saveFile(part);
+			saveFile(part, &_location);
 		else
-			saveForm(part);
+			saveForm(part, &_location);
+		start = next + boundary.size();
 	}
 }
 
@@ -195,35 +195,6 @@ bool myPost::chunkedCheck()
 	}
 }
 
-void myPost::saveFile(const std::string &part)
-{
-	size_t sep = part.find("\r\n\r\n");
-	if (sep == std::string::npos)
-		return;
-	std::string headers = part.substr(0, sep);
-	std::string content = part.substr(sep + 4);
-
-	// Trim trailing CRLF
-	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
-		content.erase(content.size() - 2);
-
-	// Extract filename
-	size_t fnPos = headers.find("filename=");
-	if (fnPos != std::string::npos)
-	{
-		size_t q1 = headers.find("\"", fnPos);
-		size_t q2 = headers.find("\"", q1 + 1);
-		std::string filename = _server.getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
-
-		std::ofstream out(filename.c_str(), std::ios::binary);
-		if (out)
-		{
-			out.write(content.data(), content.size());
-			out.close();
-			std::cout << "Saved file: " << filename << std::endl;
-		}
-	}
-}
 /*
 bool myPost::check()
 {
@@ -267,20 +238,18 @@ bool myPost::check()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(request* req, std::map <int, serverConfig*>& servers): request(*req, servers) { _method = "DELETE"; }
+myDelete::myDelete(int fd, std::string target, location& loc, std::string reqLine): request(fd, target, loc) { _method = "DELETE"; _buffer.append(reqLine);}
 
 myDelete::~myDelete() {}
 
 void	myDelete::process()
 {
-	_path = _server.getRoot() + _path;
 	if (is_directory(_path))
 		throw httpResponse(FORBIDEN);
 	if (std::remove(_path.c_str()) == 0)
 	{
-		std::string body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
-		std::string response = buildResponse(OK, body, "text/html");
-		write(_fd, response.c_str(), response.size());
+		_body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
+		throw httpResponse(this);
 	}
 	else
 	{
