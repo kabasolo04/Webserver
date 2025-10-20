@@ -23,6 +23,7 @@ void myAccept(std::map <int, serverConfig*>& serverMap, int portFd, serverConfig
 				break;
 			}
 		}
+		setNonBlocking(clientFd);
 		struct epoll_event client_event;
 		memset(&client_event, 0, sizeof(client_event));
 		client_event.data.fd = clientFd;

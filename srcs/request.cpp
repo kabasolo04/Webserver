@@ -2,6 +2,7 @@
 
 request::request(int fd, std::string target, location& loc): _fd(fd), _target(target), _location(loc)
 {
+	_function = &request::readHeader;
 	_path = _location.getRoot() + target.substr(_location.getPath().size());
 }
 
@@ -19,11 +20,40 @@ request&	request::operator = (const request& other)
 		_body = other._body;
 		_contentType = other._contentType;
 		_location = other._location;
+		_function = other._function;
 	}
 	return (*this);
 }
 
-bool	request::readSocket()
+struct nodeHandler
+{
+	const nodes name;
+	void (request::*handler)();
+};
+
+void	request::nextNode(nodes node)
+{
+	static nodeHandler nodes[1] =
+	{
+		//{PARSE_HEADER,				&request::parseHeader},
+		//{READ_BODY,					&request::readBody},
+		//{READ_CHUNKED,				&request::readChunked},
+		//{PARSE_BODY,				&request::parseBody},
+		{PROCESS,					&request::process}
+	};
+
+	if (node == PROCESS)
+	{
+		struct epoll_event ev;
+		ev.events = EPOLLOUT | EPOLLET;
+		ev.data.fd = _fd;
+		epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);
+	}
+
+	_function = nodes[node].handler;
+}
+
+void	request::readHeader()
 {
 	char buffer[BUFFER];
 
@@ -35,9 +65,12 @@ bool	request::readSocket()
 		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
 
 	else if (len < 0)
-		return (0);
+		return ;
 
-	return (_buffer.find("\r\n\r\n") != std::string::npos);
+	if (_buffer.find("\r\n\r\n") != std::string::npos)
+	{
+		nextNode(PROCESS);
+	}
 	//setHeaderVars();
 }
 
@@ -110,3 +143,5 @@ const std::string& request::getQuery() const { return _query; }
 
 void request::setBody(std::string body) { _body = body; }
 void request::setContentType(std::string contentType) { _contentType = contentType; }
+
+void	request::exec() { (this->*_function)(); }

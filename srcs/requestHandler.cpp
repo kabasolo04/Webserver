@@ -84,15 +84,8 @@ void	requestHandler::readReq(int fd, serverConfig& server)
 {
 	try
 	{
-		request* req = getReq(fd, server);
-
-		if (req->readSocket() != FINISHED) return; // Goes out only if the request hasnt been fully readed or an error ocurred
-
-		//if (req->readBody != FINISHED) return;
-
-		//if (req->process != FINISHED) return;
-
-		return req->process();	// Each method does its thing
+		getReq(fd, server)->exec();
+		return;
 	}
 
 	catch(const httpResponse& e)
