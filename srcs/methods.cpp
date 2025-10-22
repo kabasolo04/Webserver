@@ -30,7 +30,7 @@ void myGet::process()
 			return generateAutoIndex();
 	}
 
-	if (isCgiScript(_path))
+	if (isCgiScript(_path) != "")
 	{
 		cgi("/usr/bin/php-cgi");		// adjust interpreter
 		_contentType = "text/html";		// or parse CGI headers if needed
@@ -87,154 +87,86 @@ myPost::~myPost() {}
 
 void myPost::process()
 {
-	if (isCgiScript(_path))
-		return cgi("/usr/bin/python3");
-
-	if (_headers.find("Content-Type") == _headers.end())
+	if (isCgiScript(_path) != "")
+		return (cgi(isCgiScript(_path)), throw httpResponse(this));
+	if (_headers.find("content-type") == _headers.end())
 		throw httpResponse(BAD_REQUEST);
 
-	const std::string &ctype = _headers["Content-Type"];
+	const std::string &ctype = _headers["content-type"];
 	if (ctype.find("multipart/form-data") != std::string::npos)
 		handleMultipart();
 	else if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-		saveForm(_body);
+		saveForm(_body, &_location);
 	else if (ctype.find("application/json") != std::string::npos)
-		saveForm(_body);
+		saveForm(_body, &_location);
 	else
 		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
-
-	std::string body = "<html><body><h1>Upload successful!</h1></body></html>";
-	std::string response = buildResponse(OK, body, "text/html");
-	write(_fd, response.c_str(), response.size());
-	//throw httpResponse(this);
+	_body = "<html><body><h1>Upload successful!</h1></body></html>";
+	throw httpResponse(this);
 }
 
 void myPost::handleMultipart()
 {
-	std::string boundary;
-	size_t pos = _headers["Content-Type"].find("boundary=");
-	if (pos != std::string::npos)
-		boundary = "--" + _headers["Content-Type"].substr(pos + 9); // prepend --
-	else
+	size_t p = _headers["content-type"].find("boundary=");
+	if (p == std::string::npos)
 		throw httpResponse(BAD_REQUEST);
+	std::string boundary = "--" + _headers["content-type"].substr(p + 9);
 
-	std::vector<std::string> parts;
-	size_t start = 0;
+	size_t start = _body.find(boundary);
+	if (start == std::string::npos)
+		throw httpResponse(BAD_REQUEST);
+	start += boundary.size() + 2; // skip boundary + CRLF
 
 	while (true)
 	{
-		size_t end = _body.find(boundary, start);
-		if (end == std::string::npos)
+		size_t next = _body.find(boundary, start);
+		bool last = false;
+		if (next == std::string::npos)
+		{
+			next = _body.find(boundary + "--", start);
+			if (next == std::string::npos)
+				next = _body.size();
+			last = true;
+		}
+		std::string part = _body.substr(start, next - start);
+		if (last)
 			break;
-		std::string part = _buffer.substr(start, end - start);
-		if (!part.empty())
-			parts.push_back(part);
-		start = end + boundary.size();
-	}
-	for (std::vector<std::string>::const_iterator it = parts.begin(); it != parts.end(); ++it)
-	{
-		const std::string &part = *it;
 		if (part.find("filename=") != std::string::npos)
-			saveFile(part);
+			saveFile(part, &_location);
 		else
-			saveForm(part);
+			saveForm(part, &_location);
+		start = next + boundary.size();
 	}
 }
 
+/*
 bool myPost::chunkedCheck()
 {
 	while (true)
 	{
 		size_t pos = _buffer.find("\r\n");
 		if (pos == std::string::npos)
-			return false;
-
+		return false;
+		
 		std::string sizeStr = _buffer.substr(0, pos);
 		char *endptr = NULL;
 		unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
 		if (endptr == sizeStr.c_str()) // invalid number
-			throw httpResponse(BAD_REQUEST);
-
+		throw httpResponse(BAD_REQUEST);
+		
 		if (chunkSize == 0)
 		{
 			if (_buffer.size() >= pos + 4)
-				return (_buffer.erase(0, pos + 4), 1);
+			return (_buffer.erase(0, pos + 4), 1);
 			return false;
 		}
 		size_t totalNeeded = pos + 2 + chunkSize + 2;
 		if (_buffer.size() < totalNeeded)
-			return false;
+		return false;
 		size_t dataStart = pos + 2;
 		_body.append(_buffer, dataStart, chunkSize);
 		_buffer.erase(0, dataStart + chunkSize + 2);
 	}
-}
-
-void myPost::saveFile(const std::string &part)
-{
-	size_t sep = part.find("\r\n\r\n");
-	if (sep == std::string::npos)
-		return;
-	std::string headers = part.substr(0, sep);
-	std::string content = part.substr(sep + 4);
-
-	// Trim trailing CRLF
-	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
-		content.erase(content.size() - 2);
-
-	// Extract filename
-	size_t fnPos = headers.find("filename=");
-	if (fnPos != std::string::npos)
-	{
-		size_t q1 = headers.find("\"", fnPos);
-		size_t q2 = headers.find("\"", q1 + 1);
-		std::string filename = _location.getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
-
-		std::ofstream out(filename.c_str(), std::ios::binary);
-		if (out)
-		{
-			out.write(content.data(), content.size());
-			out.close();
-			std::cout << "Saved file: " << filename << std::endl;
-		}
-	}
-}
-/*
-bool myPost::check()
-{
-	if (!_headerCheck)
-	{
-		const long unsigned int it = _buffer.find("\r\n\r\n");
-		if (it != std::string::npos)
-		{
-			setHeaderVars();
-			//printHeaders();
-			_headerCheck = 1;
-			_buffer.erase(0, it + 4);
-		}
-	}
-	else
-	{
-		if (_headers.find("Content-Length") != _headers.end())
-		{
-			char *endptr = NULL;
-			errno = 0;
-			unsigned long len = std::strtoul(_headers["Content-Length"].c_str(), &endptr, 10);
-			if (errno != 0 || endptr[0] != '\0')
-				throw httpResponse(BAD_REQUEST);
-			if (_buffer.size() >= len)
-			{
-				_body = _buffer.substr(0, len);
-				return true;
-			}
-		}
-		// Chunked transfer
-		else if (_headers.find("Transfer-Encoding") != _headers.end() && _headers["Transfer-Encoding"] == "chunked")
-			return(chunkedCheck());
-		else
-			throw httpResponse(BAD_REQUEST);
-	}
-	return (0);
 }
 */
 

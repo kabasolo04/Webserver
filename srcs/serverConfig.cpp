@@ -149,8 +149,6 @@ void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
 	if (it == end || *it != "}")
 		throw std::runtime_error("Missing closing '}' for location block | serverConfig.cpp - setLocation()");
 
-
-	std::cout << "Im skipipng this: " + *it + " |" << std::endl;
  	it ++;
 	
 	_locations.push_back(temp);

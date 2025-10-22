@@ -20,11 +20,9 @@ static std::vector<std::string> tokenize(const std::string &text)
 	for (size_t i = 0; i < n; )
 	{
 		char c = text[i];
-		// comments
-		if (c == '#')
+		if (c == '#')	// Comments
 		{
-			// skip to newline
-			while (i < n && text[i] != '\n') ++i;
+			while (i < n && text[i] != '\n') ++i;	// Skip to newline
 			continue;
 		}
 		if (c == '/' && i + 1 < n && text[i + 1] == '/')
@@ -40,8 +38,7 @@ static std::vector<std::string> tokenize(const std::string &text)
 			++i;
 			continue;
 		}
-		// word token
-		size_t j = i;
+		size_t j = i;	// Word token
 		while (j < n && !isspace((unsigned char)text[j]) && text[j] != '{' && text[j] != '}' && text[j] != ';')
 			++j;
 		tokens.push_back(text.substr(i, j - i));
@@ -73,39 +70,13 @@ void	conf::parseFile(std::string filename)
 	{
 		if (*it == "server")
 		{
-			std::cout << "I Found A Server" << std::endl;
 			it ++;
 			if (it == end || *it != "{")
 				throw std::runtime_error("Expected '{' after 'server' | setConf.cpp - parseFile()");
 
 			it ++; // move past '{'
-
 			_servers.push_back(serverConfig().parseServer(it, end));
-
-			//_servers.push_back((serverConfig tmp, tmp.parseServer(it, end), tmp));
-
-			//serverConfig srv;       
-			//srv.parseServer(it, end); // 'it' advances inside parseServer
-			//_servers.push_back(srv);
 		}
 		it ++;
 	}
 }
-
-/*
-	for (size_t i = 0; i < tokens.size(); ++i)
-	{
-		if (tokens[i] == "server")
-		{
-			if (i + 1 < tokens.size() && tokens[i + 1] == "{")
-			{
-				serverConfig srv; 
-				size_t nextPos = srv.parseServer(tokens, i + 2);
-				_servers.push_back(srv);
-				i = nextPos; // move past the server block
-			}
-			else
-				throw std::runtime_error("Expected '{' after 'server' | setConf.cpp - parseFile()");
-		}
-	}
-*/

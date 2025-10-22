@@ -17,9 +17,8 @@ class myGet: public request
 class myPost: public request
 {
 	private:
-		bool	chunkedCheck();
+		//bool	chunkedCheck();
 		void	handleMultipart();
-		void	saveFile(const std::string &part);
 
 	public:
 		myPost(int fd, std::string target, location& loc);

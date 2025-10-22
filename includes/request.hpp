@@ -4,12 +4,11 @@
 
 #define BUFFER 1
 
-enum nodes {
-	PROCESS,
-	PARSE_HEADER,
+enum nodes
+{
 	READ_BODY,
 	READ_CHUNKED,
-	PARSE_BODY,
+	PROCESS,
 	STATE_COUNT // always last, to know how many states exist
 };
 
@@ -31,9 +30,18 @@ class request
 		
 		void (request::*_function)();
 
-		void		setReqLineVars();
+		//void		setReqLineVars();
 		void		setHeaderVars();
 		void		printHeaders();
+
+		void			readHeader();
+		void			readBody();
+		void			readChunked();
+		virtual void	process() = 0;
+
+		void	cgi(std::string command);
+
+		void	nextNode(nodes node);
 	
 		request(int fd, std::string target, location& loc);
 		
@@ -41,9 +49,6 @@ class request
 		virtual ~request();
 
 		request& operator = (const request& other);
-
-		void			readHeader();
-		virtual void	process() = 0;
 	
 		const std::string& getContentType() const;
 		const std::string& getBody() const;
@@ -53,8 +58,6 @@ class request
 
 		void	setBody(std::string body);
 		void	setContentType(std::string contentType);
-		void	cgi(std::string command);
 
 		void	exec();
-		void	nextNode(nodes node);
 };

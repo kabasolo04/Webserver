@@ -6,7 +6,7 @@ location::location():
 	//methods(empty)
 	_autoindex(0),
 	//errorPages(empty)
-	_headerSize(0),
+	_headerSize(10000000),
 	_bodySize(0),
 	_uploadEnable(0)
 	//uploadStore(empty)
