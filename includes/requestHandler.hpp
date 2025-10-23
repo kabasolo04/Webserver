@@ -10,7 +10,7 @@ class requestHandler
 		requestHandler();
 		~requestHandler();
 
-		static request*&	getReq(int fd, serverConfig& server);
+		static request*	getReq(int fd, serverConfig& server);
 		
 	public:
 		static void			readReq(int fd, serverConfig& server);

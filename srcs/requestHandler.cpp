@@ -49,9 +49,8 @@ request* createMethod(int fd, serverConfig& server)
 	if (!(iss >> method >> path >> protocol))
 		throw httpResponse(BAD_REQUEST);
 
-	// (optional) validate HTTP version
 	if (protocol != "HTTP/1.0" && protocol != "HTTP/1.1")
-		throw httpResponse(LOL); // Gotta make a throw
+		throw httpResponse(LOL);
 
 	location&  temp = server.getLocation(path);
 
@@ -68,7 +67,7 @@ request* createMethod(int fd, serverConfig& server)
 	throw httpResponse(METHOD_NOT_ALLOWED);
 }
 
-request*&	requestHandler::getReq(int fd, serverConfig& server)
+request*	requestHandler::getReq(int fd, serverConfig& server)
 {
 	std::map<int, request*>::iterator it = _requests.find(fd);
 
@@ -82,20 +81,15 @@ request*&	requestHandler::getReq(int fd, serverConfig& server)
 
 void	requestHandler::readReq(int fd, serverConfig& server)
 {
-	try
-	{
-		getReq(fd, server)->exec();
-		return;
-	}
+	try { return getReq(fd, server)->exec(); }
 
 	catch(const httpResponse& e)
 	{
 		e.sendResponse(fd);  // Sends the html for all methods and Errors
 	}
-
 	catch(const std::exception &e)
 	{
-		std::cout << "Error: " << e.what() << std::endl; // Catch for strange errors
+		std::cout << e.what() << std::endl; // Catch for strange errors
 	}
 
 	delReq(fd); // Once finished clean it

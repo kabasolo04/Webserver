@@ -25,10 +25,13 @@ class request
 		std::string							_contentType;
 		std::string							_query;
 		
-		std::string&						_target;
+		//std::string&						_target;
 		location&							_location;
 		
 		void (request::*_function)();
+
+		//bool	readUntil(std::string& eof);
+		//bool	readUntil(size_t size);
 
 		//void		setReqLineVars();
 		void		setHeaderVars();

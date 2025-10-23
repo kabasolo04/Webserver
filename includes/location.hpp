@@ -44,6 +44,7 @@ class location
 		location();
 		location(const location& _default);
 		location(const location& _default, int lol);
+		location& operator=(const location& other);
 		~location();
 	
 		void	setPath(const std::string& path);

@@ -13,13 +13,10 @@ void myAccept(std::map <int, serverConfig*>& serverMap, int portFd, serverConfig
 		if (clientFd == -1)
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
-			{
 				break; // no more clients
-			}
 			else
 			{
 				std::cout << "Error: Accept | main.cpp - myAccept()" << std::endl;
-				//perror("accept"); // something went wrong but we continue, this is a extrange error
 				break;
 			}
 		}
@@ -54,11 +51,8 @@ int main(int argc, char **argv)
 {
 	if (argc != 2)
 		return (std::cerr << "[ERROR]: './webserv /config/file/path' | main.cpp - main()" << std::endl, 1);
-	try
-	{
-		conf::parseFile(argv[1]);
-	}
-	catch(const std::exception &e)
+
+	try { conf::parseFile(argv[1]); } catch(const std::exception &e)
 	{
 		return (std::cout << "[ERROR]: " << e.what() << std::endl, 1);
 	}
@@ -74,12 +68,7 @@ int main(int argc, char **argv)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
 
 		for (int i = 0; i < n; i++)
-		{
 			if (!newRequest(events[i].data.fd, serverMap))
-			{
 				requestHandler::readReq(events[i].data.fd, *serverMap[events[i].data.fd]);
-			}
-
-		}
 	}
 }

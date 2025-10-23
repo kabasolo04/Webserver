@@ -1,9 +1,15 @@
 #include "WebServer.hpp"
 
-request::request(int fd, std::string target, location& loc): _fd(fd), _target(target), _location(loc)
+request::request(int fd, std::string target, location& loc): _fd(fd), _location(loc)
 {
 	_function = &request::readHeader;
-	_path = _location.getRoot() + target.substr(_location.getPath().size());
+	std::string temp = _location.getRoot();
+	std::string locPath = _location.getPath();
+
+	if (target.find(locPath) == 0)	// In case location path is prefix of target
+		_path = temp + target.substr(locPath.size());
+	else
+		_path = temp + target; // fallback
 }
 
 request::~request() {}
@@ -24,6 +30,29 @@ request&	request::operator = (const request& other)
 	}
 	return (*this);
 }
+
+/*
+bool	request::readUntil(std::string& eof)
+{
+	char buffer[BUFFER];
+
+	ssize_t len = read(_fd, buffer, sizeof(buffer));
+
+	if (len > 0)
+		_buffer.append(buffer, len);
+		else if (len == 0)
+		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
+		else if (len < 0)
+		return ;
+		return (_buffer.find(eof) != std::string::npos);
+	}
+	
+	bool	request::readUntil(size_t size)
+	{
+		
+}
+*/
+
 
 struct nodeHandler
 {
@@ -66,7 +95,7 @@ void		request::setHeaderVars()
 			break;
 
 		if (header_end - header_start > _location.getHeaderSize())
-			throw httpResponse(LOL);
+			throw httpResponse(BAD_REQUEST);
 
 		std::string line = _buffer.substr(header_start, header_end - header_start);
 		size_t colon = line.find(":");

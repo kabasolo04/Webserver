@@ -2,7 +2,7 @@
 
 location::location():
 	//root(empty),
-	//index(empty),
+	_index("index.html"),
 	//methods(empty)
 	_autoindex(0),
 	//errorPages(empty)
@@ -53,6 +53,30 @@ location::location(const location& _default, int lol):
 		_errorPages[504] = "/errors/504.html";
 	}
 
+location& location::operator=(const location& other)
+{
+	if (this != &other)
+	{
+		_path = other._path;
+		_root = other._root;
+		_index = other._index;
+		_methods = other._methods;
+		_autoindex = other._autoindex;
+
+		_errorPages = other._errorPages;
+
+		_headerSize = other._headerSize;
+		_bodySize = other._bodySize;
+
+		_uploadEnable = other._uploadEnable;
+		_uploadStore = other._uploadStore;
+
+		_cgiRoot = other._cgiRoot;
+		_cgiExtensions = other._cgiExtensions;
+	}
+	return *this;
+}
+
 location::~location() {}
 
 void	location::setRoot(TOKEN_IT& it, TOKEN_IT& end)			{ _root = *it;												it++;	(void)end;}
@@ -64,9 +88,8 @@ void	location::setUploadEnable(TOKEN_IT& it, TOKEN_IT& end)	{ _uploadEnable = (*
 void	location::setUploadStore(TOKEN_IT& it, TOKEN_IT& end)	{ _uploadStore = *it;										it++;	(void)end;}
 void	location::setCgiRoot(TOKEN_IT& it, TOKEN_IT& end)		{ _cgiRoot = *it;											it++;	(void)end;}
 
-void	location::addMethods(TOKEN_IT& it, TOKEN_IT& end)
+void	location::addMethods(TOKEN_IT& it, TOKEN_IT& end)	// allow_methods GET POST DELETE;
 {
-	// allow_methods GET POST DELETE;
 	while (it != end && *it != ";")
 	{
 		if (*it != "GET" && *it != "POST" && *it != "DELETE")
@@ -76,9 +99,8 @@ void	location::addMethods(TOKEN_IT& it, TOKEN_IT& end)
 	}
 }
 
-void	location::addErrorPage(TOKEN_IT& it, TOKEN_IT& end)
+void	location::addErrorPage(TOKEN_IT& it, TOKEN_IT& end)	// error_page 404 /errors/404.html;
 {
-	// error_page 404 /errors/404.html;
 	int code = atoi((*it).c_str());
 
 	if (++it == end)
@@ -87,9 +109,8 @@ void	location::addErrorPage(TOKEN_IT& it, TOKEN_IT& end)
 	_errorPages[code] = *it++;
 }
 
-void	location::addCgiExtension(TOKEN_IT& it, TOKEN_IT& end)
+void	location::addCgiExtension(TOKEN_IT& it, TOKEN_IT& end)	// cgi_extension .php /usr/bin/php-cgi;
 {
-	// cgi_extension .php /usr/bin/php-cgi;
 	std::string ext = *it;
 	
 	if (++it == end)
@@ -143,16 +164,9 @@ bool	location::methodAllowed(std::string method) const
 {
 	std::vector<std::string>::const_iterator it = _methods.begin();
 
-	//std::cout << "Searching for: " << method << " |" << std::endl;
+	while (it != _methods.end() && *it != method) it++;
 
-	while (it != _methods.end())
-	{
-		//std::cout << "MTHOD: " << *it << " |" << std::endl;
-		if (*it == method)
-			return true;
-		it++;
-	}
-	return false;
+	return (*it == method);
 }
 
 bool	location::isAutoindex() const	{ return _autoindex;	}
