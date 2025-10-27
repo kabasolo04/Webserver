@@ -9,7 +9,7 @@ class myGet: public request
 		void			generateAutoIndex();
 
 	public:
-		myGet(int fd, std::string target, location& loc);
+		myGet(request* baby);
 		~myGet();
 		void			process();
 };
@@ -21,7 +21,8 @@ class myPost: public request
 		void	handleMultipart();
 
 	public:
-		myPost(int fd, std::string target, location& loc);
+		myPost(request* baby);
+		//myPost(int fd, std::string target, location& loc);
 		~myPost();
 		void		process();
 };
@@ -29,7 +30,8 @@ class myPost: public request
 class myDelete: public request
 {
 	public:
-		myDelete(int fd, std::string target, location& loc);
+		myDelete(request* baby);
+		//myDelete(int fd, std::string target, location& loc);
 		~myDelete();
 		void		process();
 };

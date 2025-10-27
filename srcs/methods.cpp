@@ -4,7 +4,7 @@
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-myGet::myGet(int fd, std::string target, location& loc): request(fd, target, loc) { _method = "GET"; }
+myGet::myGet(request* baby): request(*baby) {}
 
 myGet::~myGet() {}
 
@@ -16,15 +16,15 @@ void myGet::process()
 
 	if (is_directory(_path))
 	{
-		if (!_location.isAutoindex())
-			_path += "/" + _location.getIndex();
+		if (!_location->isAutoindex())
+			_path += "/" + _location->getIndex();
 		else
 			generateAutoIndex();
 	}
 
 	if (!is_file(_path))
 	{
-		if (!_location.isAutoindex())
+		if (!_location->isAutoindex())
 			throw httpResponse(NOT_FOUND);
 		else
 			return generateAutoIndex();
@@ -69,7 +69,7 @@ void	myGet::generateAutoIndex()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-myPost::myPost(int fd, std::string target, location& loc): request(fd, target, loc) { _method = "POST"; }
+myPost::myPost(request* baby): request(*baby) {}
 
 myPost::~myPost() {}
 
@@ -84,9 +84,9 @@ void myPost::process()
 	if (ctype.find("multipart/form-data") != std::string::npos)
 		handleMultipart();
 	else if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-		saveForm(_body, &_location);
+		saveForm(_body, _location);
 	else if (ctype.find("application/json") != std::string::npos)
-		saveForm(_body, &_location);
+		saveForm(_body, _location);
 	else
 		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
 	_body = "<html><body><h1>Upload successful!</h1></body></html>";
@@ -128,9 +128,9 @@ void myPost::handleMultipart()
 
 		std::string part = _body.substr(start, next - start);
 		if (part.find("filename=") != std::string::npos)
-			saveFile(part, &_location);
+			saveFile(part, _location);
 		else
-			saveForm(part, &_location);
+			saveForm(part, _location);
 
 		if (last)
 			break;
@@ -175,7 +175,7 @@ bool myPost::chunkedCheck()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-myDelete::myDelete(int fd, std::string target, location& loc): request(fd, target, loc) { _method = "DELETE"; }
+myDelete::myDelete(request* baby): request(*baby) {}
 
 myDelete::~myDelete() {}
 

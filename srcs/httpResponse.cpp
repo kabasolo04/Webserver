@@ -30,6 +30,11 @@ httpResponse::httpResponse(request* req)
 
 void httpResponse::sendResponse(int fd) const throw()
 {
+	struct epoll_event ev;
+	ev.events = EPOLLOUT | EPOLLET;
+	ev.data.fd = fd;
+	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
+
 	std::stringstream response;
 		response << "HTTP/1.1 " << _statusCode << " " << getReasonPhrase(_statusCode).c_str() << "\r\n"
 				<< "Content-Type: " << _contentType << "\r\n"

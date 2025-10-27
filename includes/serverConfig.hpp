@@ -37,6 +37,7 @@ class serverConfig
 
 		serverConfig& parseServer(TOKEN_IT& it, TOKEN_IT& end);
 
+		location&	getDefaultLocation();
 		location&	getLocation(std::string path);
 		const std::string&	serverName();
 };

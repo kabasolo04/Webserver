@@ -1,8 +1,5 @@
 #include "WebServer.hpp"
 
-#define FINISHED 1
-#define NONE 0
-
 std::map<int, request*> requestHandler::_requests;
 
 void	requestHandler::delReq(int fd)
@@ -11,77 +8,65 @@ void	requestHandler::delReq(int fd)
 	if (it != _requests.end())
 	{
 		delete it->second;
-		epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
-		close(fd);
 		_requests.erase(it);
 	}
 }
 
-std::string readLine(int fd)
+bool requestHandler::transform(int fd, request* baby)
 {
-	std::string line;
-	char c;
-
-	while (true) // Read until CRLF
+	if (baby->getMethod() == "GET")
 	{
-		ssize_t n = read(fd, &c, 1);
-		if (n < 0)
-			throw httpResponse(INTERNAL_SERVER_ERROR);
-		if (n == 0)
-			throw std::runtime_error("Client Disconnected");
-
-		line += c;
-
-		if (line.size() >= 2 && line[line.size() - 2] == '\r' && line[line.size() - 1] == '\n')
-		{
-			line.erase(line.end() - 2, line.end()); // Remove the CRLF
-			break;
-		}
-	}
-	return line;
-}
-
-request* createMethod(int fd, serverConfig& server)
-{
-	std::istringstream iss(readLine(fd)); // Split by spaces
-	std::string method, path, protocol;
-
-	if (!(iss >> method >> path >> protocol))
-		throw httpResponse(BAD_REQUEST);
-
-	if (protocol != "HTTP/1.0" && protocol != "HTTP/1.1")
-		throw httpResponse(LOL);
-
-	location&  temp = server.getLocation(path);
-
-	if (!temp.methodAllowed(method))
-		throw httpResponse(METHOD_NOT_ALLOWED);
-
-	if (method == "GET")
-		return new myGet(fd, path, temp);
-	if (method == "POST")
-		return new myPost(fd, path, temp);
-	if (method == "DELETE")
-		return new myDelete(fd, path, temp);
-
-	throw httpResponse(METHOD_NOT_ALLOWED);
-}
-
-request*	requestHandler::getReq(int fd, serverConfig& server)
-{
-	std::map<int, request*>::iterator it = _requests.find(fd);
-
-	if (it == _requests.end())
-	{
+		request* temp = new myGet(baby);
 		delReq(fd);
-		_requests[fd] = createMethod(fd, server);
+		_requests[fd] = temp;
+		return true;
+	}
+	if (baby->getMethod() == "POST")
+	{
+		request* temp = new myPost(baby);
+		delReq(fd);
+		_requests[fd] = temp;
+		return true;
+	}
+	if (baby->getMethod() == "DELETE")
+	{
+		request* temp = new myDelete(baby);
+		delReq(fd);
+		_requests[fd] = temp;
+		return true;
+	}
+	return false;
+}
+
+request*	requestHandler::getReq(int fd)
+{
+	if (_requests.find(fd) == _requests.end())
+	{
+		throw httpResponse(INTERNAL_SERVER_ERROR);
 	}
 	return (_requests[fd]);
 }
 
-void	requestHandler::readReq(int fd, serverConfig& server)
+void	requestHandler::addReq(int fd, serverConfig& server)
 {
-	try { return getReq(fd, server)->exec(); }
+	if(_requests.find(fd) != _requests.end())
+		delReq(fd);
+
+	try { setNonBlocking(fd); } catch(const std::exception& e)
+	{
+		return (void)(std::cerr << e.what() << '\n');
+	}
+
+	epoll_event ev = {};
+	ev.data.fd = fd;
+	ev.events = EPOLLIN;
+	epoll_ctl(conf::epfd(), EPOLL_CTL_ADD, fd, &ev);
+	_requests[fd] = new request(fd, server);
+}
+
+void	requestHandler::readReq(int fd)
+{
+	try { return getReq(fd)->exec(); }
 
 	catch(const httpResponse& e)
 	{
@@ -92,5 +77,7 @@ void	requestHandler::readReq(int fd, serverConfig& server)
 		std::cout << e.what() << std::endl; // Catch for strange errors
 	}
 
-	delReq(fd); // Once finished clean it
+	delReq(fd);
+	epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
+	close(fd);
 }

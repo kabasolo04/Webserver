@@ -185,21 +185,23 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 	return *this;
 }
 
+location& serverConfig::getDefaultLocation() { return (_default);	}
+
 location& serverConfig::getLocation(std::string path)
 {
-    location* bestMatch = &_default;
-    size_t bestLength = 0;
+	location* bestMatch = &_default;
+	size_t bestLength = 0;
 
-    for (size_t i = 0; i < _locations.size(); i++)
-    {
-        const std::string& locPath = _locations[i].getPath();
+	for (size_t i = 0; i < _locations.size(); i++)
+	{
+		const std::string& locPath = _locations[i].getPath();
 
-        if (path.find(locPath) == 0 && locPath.size() > bestLength)
-        {
-            bestLength = locPath.size();
-            bestMatch = &_locations[i];
-        }
-    }
+		if (path.find(locPath) == 0 && locPath.size() > bestLength)
+		{
+			bestLength = locPath.size();
+			bestMatch = &_locations[i];
+		}
+	}
 
-    return *bestMatch;
+	return *bestMatch;
 }

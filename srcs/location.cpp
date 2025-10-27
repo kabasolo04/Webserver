@@ -156,9 +156,9 @@ void location::handleDirective(const std::string& key, TOKEN_IT& it, TOKEN_IT& e
 	throw std::runtime_error("Unknown directive: '" + key + "' | location.cpp - handleDirective()");
 }
 
-const std::string& 				location::getPath() const		{ return _path;			}
-const std::string& 				location::getRoot() const		{ return _root;			}
-const std::string& 				location::getIndex() const		{ return _index;		}
+const std::string& 				location::getPath() const		{ return _path;		}
+const std::string& 				location::getRoot() const		{ return _root;		}
+const std::string& 				location::getIndex() const		{ return _index;	}
 
 bool	location::methodAllowed(std::string method) const
 {

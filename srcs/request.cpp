@@ -1,15 +1,46 @@
 #include "WebServer.hpp"
 
-request::request(int fd, std::string target, location& loc): _fd(fd), _location(loc)
+#define MAX_REQUEST_LINE 8192
+#define FINISHED 1
+
+request::request(int fd, std::string target, location* loc): _fd(fd), _location(loc)
 {
-	_function = &request::readHeader;
-	std::string temp = _location.getRoot();
-	std::string locPath = _location.getPath();
+	_server = NULL;
+	nextNode(READ_HEADER);
+	std::string temp = _location->getRoot();
+	std::string locPath = _location->getPath();
+	(void)target;
 
 	if (target.find(locPath) == 0)	// In case location path is prefix of target
 		_path = temp + target.substr(locPath.size());
 	else
 		_path = temp + target; // fallback
+}
+
+request::request(int fd, serverConfig& server): _server(&server), _fd(fd), _location(&server.getDefaultLocation())
+{
+	_function = &request::readRequestLine;
+}
+
+request::request(const request& other): _location(other._location)
+{
+	*this = other;
+
+	if (_headers.find("content-length") != _headers.end() && _headers["content-length"] != "0")
+		nextNode(READ_BODY);
+	else if (_headers.find("transfer-encoding") != _headers.end() &&
+			_headers["transfer-encoding"] == "chunked")
+		nextNode(READ_CHUNKED);
+	else
+		nextNode(PROCESS);
+
+	std::string temp = _location->getRoot();
+	std::string locPath = _location->getPath();
+
+	if (_path.find(locPath) == 0)	// In case location path is prefix of target
+		_path = temp + _path.substr(locPath.size());
+	else
+		_path = temp + _path; // fallback
 }
 
 request::~request() {}
@@ -18,21 +49,22 @@ request&	request::operator = (const request& other)
 {
 	if (this != &other)
 	{
-		_fd = other._fd;
-		_buffer = other._buffer;
-		_path = other._path;
-		_protocol = other._protocol;
-		_headers = other._headers;
-		_body = other._body;
-		_contentType = other._contentType;
-		_location = other._location;
-		_function = other._function;
+		_server			= other._server;
+		_fd				= other._fd;
+		_buffer			= other._buffer;
+		_path			= other._path;
+		_protocol		= other._protocol;
+		_headers		= other._headers;
+		_body			= other._body;
+		_contentType	= other._contentType;
+		_location		= other._location;
+		//_function = other._function;
 	}
 	return (*this);
 }
 
-/*
-bool	request::readUntil(std::string& eof)
+
+bool	request::readUntil(std::string eof)
 {
 	char buffer[BUFFER];
 
@@ -40,19 +72,27 @@ bool	request::readUntil(std::string& eof)
 
 	if (len > 0)
 		_buffer.append(buffer, len);
-		else if (len == 0)
+	else if (len == 0)
 		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
-		else if (len < 0)
-		return ;
-		return (_buffer.find(eof) != std::string::npos);
-	}
-	
-	bool	request::readUntil(size_t size)
-	{
-		
+	else if (len < 0)
+		return false;
+	return (_buffer.find(eof) != std::string::npos);
 }
-*/
 
+//bool	request::myRead(int fd)
+//{
+//	char buffer[BUFFER];
+//
+//	ssize_t len = read(fd, buffer, sizeof(buffer));
+//
+//	if (len > 0)
+//		_buffer.append(buffer, len);
+//	else if (len == 0)
+//		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
+//	else if (len < 0)
+//		return false;
+//	return (_buffer.find(eof) != std::string::npos);
+//}
 
 struct nodeHandler
 {
@@ -64,9 +104,11 @@ void	request::nextNode(nodes node)
 {
 	static nodeHandler nodes[STATE_COUNT] =
 	{
+		{READ_HEADER,				&request::readHeader},
 		{READ_BODY,					&request::readBody},
 		{READ_CHUNKED,				&request::readChunked},
-		{PROCESS,					&request::process}
+		{PROCESS,					&request::process},
+		{END,						&request::end}
 	};
 
 	if (node == PROCESS)
@@ -94,13 +136,13 @@ void		request::setHeaderVars()
 		if (header_end == header_start) // empty line -> end of headers
 			break;
 
-		if (header_end - header_start > _location.getHeaderSize())
+		if (header_end - header_start > _location->getHeaderSize())
 			throw httpResponse(BAD_REQUEST);
 
 		std::string line = _buffer.substr(header_start, header_end - header_start);
 		size_t colon = line.find(":");
 		if (colon == std::string::npos)
-			throw httpResponse(BAD_REQUEST);
+			throw httpResponse(LOL);
 		
 		std::string key = line.substr(0, colon);
 		std::string value = line.substr(colon + 1);
@@ -124,34 +166,39 @@ void		request::setHeaderVars()
 	size_t header_end = _buffer.find("\r\n\r\n");
 	if (header_end == std::string::npos)
 		header_end = _buffer.find("\n\n");
-	_buffer.erase(0, header_end + 4); // remove headers from buffer
+	_buffer.erase(0, header_end + 4);	// remove headers from buffer
+}
+
+void	request::readRequestLine()
+{
+	if (readUntil("\n") == FINISHED)
+	{
+		if (_buffer.length() > MAX_REQUEST_LINE)
+			nextNode(END);
+		
+		std::istringstream iss(_buffer);
+
+		if (!(iss >> _method >> _path >> _protocol))	// Split by spaces
+			throw httpResponse(BAD_REQUEST);
+
+		size_t header_end = _buffer.find("\n");
+		_buffer.erase(0, header_end + 1);
+
+		nextNode(READ_HEADER);
+		//requestHandler::transform(_fd, this);
+	}
 }
 
 void	request::readHeader()
 {
-	char buffer[BUFFER];
-
-	ssize_t len = read(_fd, buffer, sizeof(buffer));
-
-	if (len > 0)
-		_buffer.append(buffer, len);
-	else if (len == 0)
-		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
-
-	else if (len < 0)
-		return ;
-
-	if (_buffer.find("\r\n\r\n") != std::string::npos)	// HeaderEnd
+	if (readUntil("\r\n\r\n") == FINISHED)	// HeaderEnd
 	{
 		setHeaderVars();
 
-		if (_headers.find("content-length") != _headers.end() && _headers["content-length"] != "0")
-			nextNode(READ_BODY);
-		else if (_headers.find("transfer-encoding") != _headers.end() &&
-				_headers["transfer-encoding"] == "chunked")
-			nextNode(READ_CHUNKED);
-		else
-			nextNode(PROCESS);
+		_location = &_server->getLocation(_path);
+
+		if (!requestHandler::transform(_fd, this))
+			throw httpResponse(LOL);
 	}
 }
 
@@ -164,7 +211,7 @@ void request::readBody()
 	{
 		_buffer.append(buffer, len);
 		size_t content_length = 0;
-		std::istringstream iss(_headers["content-length"]);
+		std::istringstream iss(_headers["content-length"]); 
 		iss >> content_length;
 		if (iss.fail())
 			throw httpResponse(BAD_REQUEST);
@@ -224,6 +271,19 @@ void request::readChunked()
 		nextNode(PROCESS);
 	}
 }
+
+void	request::process() {}
+
+void	request::end() {}
+
+//void	request::response(StatusCode code)
+//{
+//	_code = code;
+//	if (_location->getErrorPages().find(code) != _location->getErrorPages().end())
+//	{
+//
+//	}
+//}
 
 void	request::printHeaders()
 {

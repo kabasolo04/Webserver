@@ -6,14 +6,19 @@
 
 enum nodes
 {
+	READ_HEADER,
 	READ_BODY,
 	READ_CHUNKED,
 	PROCESS,
-	STATE_COUNT // always last, to know how many states exist
+	END,
+	STATE_COUNT	// '\n' basically
 };
 
 class request
 {
+	private:
+		serverConfig*	_server;
+
 	protected:
 		int									_fd;
 		std::string							_method;
@@ -25,34 +30,37 @@ class request
 		std::string							_contentType;
 		std::string							_query;
 		
-		//std::string&						_target;
-		location&							_location;
+		location*							_location;
 		
 		void (request::*_function)();
 
-		//bool	readUntil(std::string& eof);
+		bool	readUntil(std::string eof);
 		//bool	readUntil(size_t size);
 
 		//void		setReqLineVars();
 		void		setHeaderVars();
 		void		printHeaders();
 
+		void			readRequestLine();
 		void			readHeader();
 		void			readBody();
 		void			readChunked();
-		virtual void	process() = 0;
+		virtual void	process();
+		//void			response(StatusCode code);
+		void			end();
 
 		void	cgi(std::string command);
 
 		void	nextNode(nodes node);
 	
-		request(int fd, std::string target, location& loc);
+		request(const request& other);
+		request(int fd, std::string target, location* loc);
+		request& operator = (const request& other);
 		
 	public:
+		request(int fd, serverConfig& server);
 		virtual ~request();
 
-		request& operator = (const request& other);
-	
 		const std::string& getContentType() const;
 		const std::string& getBody() const;
 		const std::string& getMethod() const;

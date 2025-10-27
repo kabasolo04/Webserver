@@ -2,35 +2,27 @@
 
 #define MAX_EVENTS 10
 
-void myAccept(std::map <int, serverConfig*>& serverMap, int portFd, serverConfig& server)
+void myAccept(int fd, serverConfig& server)
 {
 	while (true)
 	{
+		//std::cout << "im server!:" << fd << std::endl;
 		struct sockaddr_in client_addr;
 		memset(&client_addr, 0, sizeof(client_addr));
 		socklen_t client_len = sizeof(client_addr);
-		int clientFd = accept(portFd, (sockaddr*)&client_addr, &client_len);
+		int clientFd = accept(fd, (sockaddr*)&client_addr, &client_len);
 		if (clientFd == -1)
 		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				break; // no more clients
-			else
-			{
+			if (!(errno == EAGAIN || errno == EWOULDBLOCK))
 				std::cout << "Error: Accept | main.cpp - myAccept()" << std::endl;
-				break;
-			}
+			break;
 		}
-		setNonBlocking(clientFd);
-		struct epoll_event client_event;
-		memset(&client_event, 0, sizeof(client_event));
-		client_event.data.fd = clientFd;
-		client_event.events = EPOLLIN;
-		epoll_ctl(conf::epfd(), EPOLL_CTL_ADD, clientFd, &client_event);
-		serverMap[clientFd] = &server;
+		//serverMap[clientFd] = &server;
+		requestHandler::addReq(clientFd, server);
 	}
 }
 
-bool	newRequest(int fd, std::map <int, serverConfig*>& serverMap)
+bool	newRequest(int fd)
 {
 	std::vector<serverConfig>::iterator serverIt = conf::serverBegin();
 
@@ -41,14 +33,14 @@ bool	newRequest(int fd, std::map <int, serverConfig*>& serverMap)
 	
 		for (; listenIt != server.listenEnd(); ++listenIt)
 			if (listenIt->_fd == fd)
-				return (myAccept(serverMap, fd, server), true);
+				return (myAccept(fd, server), true);
 	}
-
 	return false;
 }
 
 int main(int argc, char **argv)
 {
+	//signal(SIGPIPE, SIG_IGN);
 	if (argc != 2)
 		return (std::cerr << "[ERROR]: './webserv /config/file/path' | main.cpp - main()" << std::endl, 1);
 
@@ -58,7 +50,7 @@ int main(int argc, char **argv)
 	}
 
 	struct epoll_event	events[MAX_EVENTS];
-	std::map <int, serverConfig*> serverMap;
+	//std::map <int, serverConfig*> serverMap;
 
 	while (1)
 	{
@@ -68,7 +60,7 @@ int main(int argc, char **argv)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
 
 		for (int i = 0; i < n; i++)
-			if (!newRequest(events[i].data.fd, serverMap))
-				requestHandler::readReq(events[i].data.fd, *serverMap[events[i].data.fd]);
+			if (!newRequest(events[i].data.fd))
+				requestHandler::readReq(events[i].data.fd);
 	}
 }

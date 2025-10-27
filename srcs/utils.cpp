@@ -18,13 +18,12 @@ bool	is_file(const std::string &path)
 
 void	setNonBlocking(int fd)
 {
-	int old_option = fcntl(fd, F_GETFL);
-	int new_option = old_option | O_NONBLOCK;
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1)
+        throw std::runtime_error("fcntl(F_GETFL) failed");
 
-	if (old_option == -1)
-		throw std::runtime_error("fctnl() failed | utils.cpp - setNonBlocking()");
-	if (fcntl(fd, F_SETFL, new_option) == -1)
-		throw std::runtime_error("fctnl() failed | utils.cpp - setNonBlocking()");
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+        throw std::runtime_error("fcntl(F_SETFL) failed");
 }
 
 std::string getReasonPhrase(StatusCode code)

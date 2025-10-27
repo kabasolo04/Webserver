@@ -42,8 +42,8 @@ class location
 
 	public:
 		location();
-		location(const location& _default);
-		location(const location& _default, int lol);
+		location(const location& _default);				// Copy constructor for the containers
+		location(const location& _default, int lol);	// Copy constructor for us, the int is just a flag
 		location& operator=(const location& other);
 		~location();
 	
