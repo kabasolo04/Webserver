@@ -11,3 +11,4 @@ std::string		getMimeType(const std::string &path);
 void			saveFile(const std::string &part, location *loc);
 void			saveForm(const std::string &part, location *loc);
 std::string		getAbsolutePath(const std::string &path);
+std::string		isCgiScript(std::string filename);

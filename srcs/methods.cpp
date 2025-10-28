@@ -31,11 +31,7 @@ void myGet::process()
 	}
 
 	if (isCgiScript(_path) != "")
-	{
-		cgi("/usr/bin/php-cgi");		// adjust interpreter
-		_contentType = "text/html";		// or parse CGI headers if needed
-		return;
-	}
+		return(cgi(isCgiScript(_path)), throw httpResponse(this));
 
 	file.open(_path.c_str());
 	if (!file.is_open())

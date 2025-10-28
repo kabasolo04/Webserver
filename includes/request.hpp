@@ -49,7 +49,13 @@ class request
 		//void			response(StatusCode code);
 		void			end();
 
-		void	cgi(std::string command);
+		void						cgi(std::string command);
+		void						execChild(const std::string &command, int outPipe[2], int inPipe[2]);
+		void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
+		std::vector<std::string>	build_env();
+
+
+
 
 		void	nextNode(nodes node);
 	
@@ -64,11 +70,6 @@ class request
 		const std::string& getContentType() const;
 		const std::string& getBody() const;
 		const std::string& getMethod() const;
-		const std::string& getPath() const;
-		const std::string& getQuery() const;
-
-		void	setBody(std::string body);
-		void	setContentType(std::string contentType);
 
 		void	exec();
 };

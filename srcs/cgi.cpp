@@ -50,23 +50,23 @@ std::vector<char*> buildArgv(const std::string& command, const std::string& path
 	return argv;
 }
 
-std::vector<std::string>	build_env(const request& req)
+std::vector<std::string>	request::build_env()
 {
 	std::vector<std::string> env_str;
-	env_str.push_back("REQUEST_METHOD=" + req.getMethod());
-	env_str.push_back("SCRIPT_FILENAME=" + req.getPath());
+	env_str.push_back("REQUEST_METHOD=" + _method);
+	env_str.push_back("SCRIPT_FILENAME=" + _path);
 	env_str.push_back("GATEWAY_INTERFACE=CGI/1.1");
 	env_str.push_back("SERVER_PROTOCOL=HTTP/1.1");
-	if (req.getMethod() == "GET")
-		env_str.push_back("QUERY_STRING=" + req.getQuery());
+	if (_method == "GET")
+		env_str.push_back("QUERY_STRING=" + _query);
 	env_str.push_back("REDIRECT_STATUS=200");
-	if (req.getMethod() == "POST")
+	if (_method == "POST")
 	{
 		std::ostringstream ss;
-		ss << req.getBody().size();
+		ss << _body.size();
 		env_str.push_back("CONTENT_LENGTH=" + ss.str());
-		env_str.push_back("SCRIPT_NAME=" + req.getPath());
-		env_str.push_back("PATH_INFO=" + req.getPath());
+		env_str.push_back("SCRIPT_NAME=" + _path);
+		env_str.push_back("PATH_INFO=" + _path);
 		env_str.push_back("CONTENT_TYPE=application/x-www-form-urlencoded");
 	}
 	else
@@ -75,28 +75,28 @@ std::vector<std::string>	build_env(const request& req)
 	return (env_str);
 }
 
-void	execChild(const request& req, const std::string &command, int outPipe[2], int inPipe[2])
+void	request::execChild(const std::string &command, int outPipe[2], int inPipe[2])
 {
 	close(outPipe[0]);
 	dup2(outPipe[1], STDOUT_FILENO);
 	close(outPipe[1]);
 
-	if (req.getMethod() == "POST")
+	if (_method == "POST")
 	{
 		close(inPipe[1]);
 		dup2(inPipe[0], STDIN_FILENO);
 		close(inPipe[0]);
 	}
 
-	std::vector<char *> argv = buildArgv(command, req.getPath());
-	std::vector<std::string> env_str = build_env(req);
+	std::vector<char *> argv = buildArgv(command, _path);
+	std::vector<std::string> env_str = build_env();
 	std::vector<char*> envp;
 	for (size_t i = 0; i < env_str.size(); ++i)
 		envp.push_back(const_cast<char*>(env_str[i].c_str()));
 	envp.push_back(NULL);
 
 	//Chdir so relative pahts work
-	std::string dir = req.getPath().substr(0, req.getPath().find_last_of('/'));
+	std::string dir = _path.substr(0, _path.find_last_of('/'));
 	chdir(dir.c_str());
 
 	execve(argv[0], argv.data(), envp.data());
@@ -104,13 +104,13 @@ void	execChild(const request& req, const std::string &command, int outPipe[2], i
 	exit(1);
 }
 
-void handleParent(request& req, pid_t child, int outPipe[2], int inPipe[2])
+void	request::handleParent(pid_t child, int outPipe[2], int inPipe[2])
 {
 	close(outPipe[1]);
-	if (req.getMethod() == "POST")
+	if (_method == "POST")
 	{
 		close(inPipe[0]);
-		write(inPipe[1], req.getBody().c_str(), req.getBody().size());
+		write(inPipe[1], _body.c_str(), _body.size());
 		close(inPipe[1]);
 	}
 	std::string response;
@@ -140,11 +140,11 @@ void handleParent(request& req, pid_t child, int outPipe[2], int inPipe[2])
 	if (pos != std::string::npos)
 	{
 		size_t end = cgiHeaders.find("\r\n", pos);
-		req.setContentType(cgiHeaders.substr(pos + 13, end - pos - 13));
+		_contentType = cgiHeaders.substr(pos + 13, end - pos - 13);
 	}
 	else
-		req.setContentType("text/html");
-	req.setBody(cgiBody);
+		_contentType = "text/html";
+	_body = cgiBody;
 }
 
 void	request::cgi(std::string command)
@@ -179,7 +179,7 @@ void	request::cgi(std::string command)
 	}
 	_path = getAbsolutePath(_path);
 	if (child == 0)
-		execChild(*this, command, outPipe, inPipe);
+		execChild(command, outPipe, inPipe);
 	else
- 		handleParent(*this, child, outPipe, inPipe);
+ 		handleParent(child, outPipe, inPipe);
 }
