@@ -1,6 +1,95 @@
 #include "WebServer.hpp"
 
 //---------------------------------------------------------------------------//
+// UTILS                                                                       //
+//---------------------------------------------------------------------------//
+
+static bool	is_directory(const std::string &path)
+{
+	struct stat info;
+	if (stat(path.c_str(), &info) != 0)
+		return false;			  // failed to get info (doesn't exist, etc.)
+	return S_ISDIR(info.st_mode); // true if directory
+}
+
+static bool	is_file(const std::string &path)
+{
+	struct stat info;
+	if (stat(path.c_str(), &info) != 0)
+		return false;
+	return S_ISREG(info.st_mode); // true if regular file
+}
+
+static std::string	getMimeType(const std::string &path)
+{
+	size_t dot = path.find_last_of('.');
+	if (dot == std::string::npos) return "application/octet-stream";
+	std::string ext = path.substr(dot + 1);
+
+	if (ext == "html" || ext == "htm") return "text/html";
+	if (ext == "css") return "text/css";
+	if (ext == "js") return "application/javascript";
+	if (ext == "png") return "image/png";
+	if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+	if (ext == "gif") return "image/gif";
+	if (ext == "json") return "application/json";
+
+	return "application/octet-stream";
+}
+
+static void saveFile(const std::string &part, location *loc)
+{
+		size_t sep = part.find("\r\n\r\n");
+	if (sep == std::string::npos)
+		return;
+	std::string headers = part.substr(0, sep);
+	std::string content = part.substr(sep + 4);
+
+	// Trim trailing CRLF
+	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
+		content.erase(content.size() - 2);
+
+	// Extract filename
+	size_t fnPos = headers.find("filename");
+	if (fnPos != std::string::npos)
+	{
+		size_t q1 = headers.find("\"", fnPos);
+		size_t q2 = headers.find("\"", q1 + 1);
+		std::string filename = loc->getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+
+		std::ofstream out(filename.c_str(), std::ios::binary);
+		if (out)
+		{
+			out.write(content.data(), content.size());
+			out.close();
+			std::cout << "Saved file: " << filename << std::endl;
+		}
+	}
+}
+
+static void	saveForm(const std::string &part, location *loc)
+{
+	(void)part;
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+	std::stringstream ss;
+	ss << ms;
+	std::string time = ss.str();
+ 
+	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
+
+	mkdir((loc->getRoot() + "/forms").c_str(), 0755);
+	std::string filename = loc->getRoot() + "/forms/" + time + ".txt";
+		std::ofstream out(filename.c_str(), std::ios::binary);
+	if (!out)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	out.write(part.data(), part.size());
+	out.close();
+	std::cout << "Saved form file: " << filename << std::endl;
+}
+
+//---------------------------------------------------------------------------//
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
@@ -107,7 +196,7 @@ void myPost::handleMultipart()
 		throw httpResponse(BAD_REQUEST);
 	start += boundary.size() + 2; // skip boundary + CRLF
 
-	while (true)
+	while (start < _body.size())
 	{
 		size_t next = _body.find(boundary, start);
 		bool last = false;
@@ -122,50 +211,18 @@ void myPost::handleMultipart()
 		if (next < start) // sanity check
 			throw httpResponse(BAD_REQUEST);
 
+		if (last)
+			break;
+
 		std::string part = _body.substr(start, next - start);
 		if (part.find("filename=") != std::string::npos)
 			saveFile(part, _location);
 		else
 			saveForm(part, _location);
 
-		if (last)
-			break;
-
 		start = next + boundary.size();
 	}
 }
-
-
-/*
-bool myPost::chunkedCheck()
-{
-	while (true)
-	{
-		size_t pos = _buffer.find("\r\n");
-		if (pos == std::string::npos)
-		return false;
-		
-		std::string sizeStr = _buffer.substr(0, pos);
-		char *endptr = NULL;
-		unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
-		if (endptr == sizeStr.c_str()) // invalid number
-		throw httpResponse(BAD_REQUEST);
-		
-		if (chunkSize == 0)
-		{
-			if (_buffer.size() >= pos + 4)
-			return (_buffer.erase(0, pos + 4), 1);
-			return false;
-		}
-		size_t totalNeeded = pos + 2 + chunkSize + 2;
-		if (_buffer.size() < totalNeeded)
-		return false;
-		size_t dataStart = pos + 2;
-		_body.append(_buffer, dataStart, chunkSize);
-		_buffer.erase(0, dataStart + chunkSize + 2);
-	}
-}
-*/
 
 //---------------------------------------------------------------------------//
 // DELETE                                                                    //

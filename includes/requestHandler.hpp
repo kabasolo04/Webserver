@@ -18,3 +18,4 @@ class requestHandler
 		static void			readReq(int fd);
 };
 
+void	setNonBlocking(int fd);

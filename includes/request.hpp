@@ -50,6 +50,7 @@ class request
 		void			end();
 
 		void						cgi(std::string command);
+		std::string					isCgiScript(std::string filename);
 		void						execChild(const std::string &command, int outPipe[2], int inPipe[2]);
 		void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
 		std::vector<std::string>	build_env();

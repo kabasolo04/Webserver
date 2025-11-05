@@ -12,7 +12,10 @@ location::location():
 	//uploadStore(empty)
 	//cgiExtensions(empty)
 	//cgiRoot(empty)
-	{}
+	{
+		_cgiExtensions["php"] = "/usr/bin/php-cgi";
+		_cgiExtensions["py"] = "/usr/bin/python3";
+	}
 
 location::location(const location& _default):
 	_path(_default._path),
