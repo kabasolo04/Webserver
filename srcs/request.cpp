@@ -58,7 +58,6 @@ request&	request::operator = (const request& other)
 		_location			= other._location;
 		_contentLength		= other._contentLength;
 		_currentFunction	= other._currentFunction;
-		//_function = other._function;
 	}
 	return (*this);
 }
@@ -287,7 +286,7 @@ void	request::response(StatusCode code)
 	}
 	else
 	{
-		response << "Transfer-Encoding: chunked\r\n" << "\r\n";ss
+		response << "Transfer-Encoding: chunked\r\n" << "\r\n";
 		_buffer.clear();
 		_infile = open(it->second.c_str(), O_RDONLY);
 
@@ -322,7 +321,7 @@ StatusCode	request::readAndSend()
 	ssize_t n = read(_infile, buf, sizeof(buf));
 
 	if (n > 0) 
-   		sendChunk(_fd, std::string(buf, n));
+		sendChunk(_fd, std::string(buf, n));
 
 	if (n == 0)
 	{
@@ -449,8 +448,25 @@ void request::exec()
 const std::string& request::getContentType()	const { return _contentType; }
 const std::string& request::getBody()			const { return _body; }
 const std::string& request::getMethod()			const { return _method; }
-const std::string& request::getPath()			const { return _path; }
-const std::string& request::getQuery()			const { return _query; }
 
-void request::setBody(std::string body) { _body = body; }
-void request::setContentType(std::string contentType) { _contentType = contentType; }
+
+static std::string getReasonPhrase(StatusCode code)
+{
+	switch (code)
+	{
+		case OK: return "OK";
+		case NO_CONTENT: return "No Content";
+		case FOUND: return "Found";
+		case BAD_REQUEST: return "Bad Request";
+		case NOT_FOUND: return "Not Found";
+		case INTERNAL_SERVER_ERROR: return "Internal Server Error";
+		case FORBIDEN: return "Forbiden";
+		case METHOD_NOT_ALLOWED: return "Method Not Allowed";
+		case PAYLOAD_TOO_LARGE: return "Payload Too Large";
+		case UNSUPPORTED_MEDIA_TYPE: return "Unsupported Media Type";
+		case NOT_IMPLEMENTED: return "Not Implemented";
+		case GATEWAY_TIMEOUT: return "Gateway Timeout";
+		case LOL: return "No Fucking Idea Mate";
+		default: return "Unknown";
+	}
+}

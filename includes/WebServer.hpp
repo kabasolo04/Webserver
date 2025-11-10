@@ -39,8 +39,6 @@
 #include "request.hpp"
 #include "requestHandler.hpp"
 #include "httpResponse.hpp"
-#include "utils.hpp"
 #include "methods.hpp"
-#include "cgi.hpp"
 
 //#include "factory.hpp"

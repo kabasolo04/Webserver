@@ -1,6 +1,95 @@
 #include "WebServer.hpp"
 
 //---------------------------------------------------------------------------//
+// UTILS                                                                       //
+//---------------------------------------------------------------------------//
+
+static bool	is_directory(const std::string &path)
+{
+	struct stat info;
+	if (stat(path.c_str(), &info) != 0)
+		return false;			  // failed to get info (doesn't exist, etc.)
+	return S_ISDIR(info.st_mode); // true if directory
+}
+
+static bool	is_file(const std::string &path)
+{
+	struct stat info;
+	if (stat(path.c_str(), &info) != 0)
+		return false;
+	return S_ISREG(info.st_mode); // true if regular file
+}
+
+static std::string	getMimeType(const std::string &path)
+{
+	size_t dot = path.find_last_of('.');
+	if (dot == std::string::npos) return "application/octet-stream";
+	std::string ext = path.substr(dot + 1);
+
+	if (ext == "html" || ext == "htm") return "text/html";
+	if (ext == "css") return "text/css";
+	if (ext == "js") return "application/javascript";
+	if (ext == "png") return "image/png";
+	if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+	if (ext == "gif") return "image/gif";
+	if (ext == "json") return "application/json";
+
+	return "application/octet-stream";
+}
+
+static void saveFile(const std::string &part, location *loc)
+{
+		size_t sep = part.find("\r\n\r\n");
+	if (sep == std::string::npos)
+		return;
+	std::string headers = part.substr(0, sep);
+	std::string content = part.substr(sep + 4);
+
+	// Trim trailing CRLF
+	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
+		content.erase(content.size() - 2);
+
+	// Extract filename
+	size_t fnPos = headers.find("filename");
+	if (fnPos != std::string::npos)
+	{
+		size_t q1 = headers.find("\"", fnPos);
+		size_t q2 = headers.find("\"", q1 + 1);
+		std::string filename = loc->getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+
+		std::ofstream out(filename.c_str(), std::ios::binary);
+		if (out)
+		{
+			out.write(content.data(), content.size());
+			out.close();
+			std::cout << "Saved file: " << filename << std::endl;
+		}
+	}
+}
+
+static void	saveForm(const std::string &part, location *loc)
+{
+	(void)part;
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+	std::stringstream ss;
+	ss << ms;
+	std::string time = ss.str();
+ 
+	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
+
+	mkdir((loc->getRoot() + "/forms").c_str(), 0755);
+	std::string filename = loc->getRoot() + "/forms/" + time + ".txt";
+		std::ofstream out(filename.c_str(), std::ios::binary);
+	if (!out)
+		throw httpResponse(INTERNAL_SERVER_ERROR);
+	out.write(part.data(), part.size());
+	out.close();
+	std::cout << "Saved form file: " << filename << std::endl;
+}
+
+//---------------------------------------------------------------------------//
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
@@ -35,6 +124,9 @@ StatusCode	myGet::setUpMethod()
 	//	cgi("/usr/bin/php-cgi");		// adjust interpreter
 	//	_contentType = "text/html";		// or parse CGI headers if needed
 	//}
+
+	//if (isCgiScript(_path) != "")
+	//	return(cgi(isCgiScript(_path)), throw httpResponse(this));
 
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
@@ -126,7 +218,7 @@ void myPost::handleMultipart()
 		throw httpResponse(BAD_REQUEST);
 	start += boundary.size() + 2; // skip boundary + CRLF
 
-	while (true)
+	while (start < _body.size())
 	{
 		size_t next = _body.find(boundary, start);
 		bool last = false;
@@ -141,14 +233,14 @@ void myPost::handleMultipart()
 		if (next < start) // sanity check
 			throw httpResponse(BAD_REQUEST);
 
+		if (last)
+			break;
+
 		std::string part = _body.substr(start, next - start);
 		if (part.find("filename=") != std::string::npos)
 			saveFile(part, &_location);
 		else
 			saveForm(part, &_location);
-
-		if (last)
-			break;
 
 		start = next + boundary.size();
 	}

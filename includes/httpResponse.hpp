@@ -38,3 +38,5 @@ class httpResponse: public std::exception
 
 		void sendResponse(int fd) const throw();
 };
+
+std::string buildResponse(StatusCode code, const std::string& body, const std::string& contentType);

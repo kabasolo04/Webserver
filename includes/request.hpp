@@ -16,16 +16,6 @@ enum Request
 	END_REQUEST
 };
 
-/*
-TRANSFORM:
-	Once the first part of the request is readed, some crucial information is revealed to us such
-	us method, http-version, host, etc. Since our class is a vanilla one, created just to read
-	the begining of the request, it has to update into the expected one "transforming" itself.
-
-	In order to "transform" it has to create a new request throwing itself as construction
-	parameter and then destroying itself, this way a new updated request
-*/
-
 enum StatusCode
 {
 //-------------------- FLAGS
@@ -46,6 +36,7 @@ enum StatusCode
 	UNSUPPORTED_MEDIA_TYPE	= 415,
 	INTERNAL_SERVER_ERROR	= 500,
 	NOT_IMPLEMENTED			= 501,
+	GATEWAY_TIMEOUT			= 696,	// fake
 	LOL						= 700,
 	BIG_ERRORS,
 	READ_ERROR,
@@ -92,7 +83,14 @@ class request
 		StatusCode			readAndSend();
 		StatusCode			end();
 
-		void	cgi(std::string command);
+		void						cgi(std::string command);
+		std::string					isCgiScript(std::string filename);
+		void						execChild(const std::string &command, int outPipe[2], int inPipe[2]);
+		void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
+		std::vector<std::string>	build_env();
+
+
+
 
 		void	nextFunction();
 		StatusCode	currentFunction();
@@ -106,14 +104,9 @@ class request
 		request(int fd, serverConfig& server);
 		virtual ~request();
 
-		const std::string& getContentType()	const;
-		const std::string& getBody()		const;
-		const std::string& getMethod()		const;
-		const std::string& getPath()		const;
-		const std::string& getQuery()		const;
-
-		void	setBody(std::string body);
-		void	setContentType(std::string contentType);
+		const std::string& getContentType() const;
+		const std::string& getBody() const;
+		const std::string& getMethod() const;
 
 		void	exec();
 };
