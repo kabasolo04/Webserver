@@ -6,7 +6,6 @@ void myAccept(int fd, serverConfig& server)
 {
 	while (true)
 	{
-		//std::cout << "im server!:" << fd << std::endl;
 		struct sockaddr_in client_addr;
 		memset(&client_addr, 0, sizeof(client_addr));
 		socklen_t client_len = sizeof(client_addr);
@@ -17,7 +16,6 @@ void myAccept(int fd, serverConfig& server)
 				std::cout << "Error: Accept | main.cpp - myAccept()" << std::endl;
 			break;
 		}
-		//serverMap[clientFd] = &server;
 		requestHandler::addReq(clientFd, server);
 	}
 }
@@ -40,7 +38,6 @@ bool	newRequest(int fd)
 
 int main(int argc, char **argv)
 {
-	//signal(SIGPIPE, SIG_IGN);
 	if (argc != 2)
 		return (std::cerr << "[ERROR]: './webserv /config/file/path' | main.cpp - main()" << std::endl, 1);
 
@@ -50,17 +47,18 @@ int main(int argc, char **argv)
 	}
 
 	struct epoll_event	events[MAX_EVENTS];
-	//std::map <int, serverConfig*> serverMap;
 
 	while (1)
 	{
 		int n = epoll_wait(conf::epfd(), events, MAX_EVENTS, -1);
 	
+		//std::cout << "epoll loop" << std::endl;
+
 		if (n < 0)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
 
 		for (int i = 0; i < n; i++)
 			if (!newRequest(events[i].data.fd))
-				requestHandler::readReq(events[i].data.fd);
+				requestHandler::execReq(events[i].data.fd);
 	}
 }

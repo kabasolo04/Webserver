@@ -14,6 +14,7 @@ class location
 
 		std::map<int, std::string> 			_errorPages;
 
+		size_t								_requestLineSize; // Isnt Parsed
 		size_t								_headerSize;
 		size_t								_bodySize;
 
@@ -39,7 +40,6 @@ class location
 		void	setCgiRoot(TOKEN_IT& it, TOKEN_IT& end);
 		void	addCgiExtension(TOKEN_IT& it, TOKEN_IT& end);
 
-
 	public:
 		location();
 		location(const location& _default);				// Copy constructor for the containers
@@ -60,6 +60,7 @@ class location
 
 		const std::map<int, std::string>& 	getErrorPages() const;
 		
+		size_t	getRequestLineSize() const;
 		size_t	getBodySize() const;
 		size_t	getHeaderSize() const;
 		

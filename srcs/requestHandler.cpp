@@ -12,39 +12,43 @@ void	requestHandler::delReq(int fd)
 	}
 }
 
+struct MethodFactory
+{
+	const char* name;
+	request* (*create)(request*);
+};
+
+static request* createGet		(request* r) { return new myGet(r); 	}
+static request* createPost		(request* r) { return new myPost(r);	}
+static request* createDelete	(request* r) { return new myDelete(r);	}
+
 bool requestHandler::transform(int fd, request* baby)
 {
-	if (baby->getMethod() == "GET")
+	static const MethodFactory factories[] = {
+		{"GET",    &createGet},
+		{"POST",   &createPost},
+		{"DELETE", &createDelete}
+	};
+
+	const std::string& method = baby->getMethod();
+
+	for (size_t i = 0; i < sizeof(factories) / sizeof(factories[0]); ++i)
 	{
-		request* temp = new myGet(baby);
-		delReq(fd);
-		_requests[fd] = temp;
-		return true;
-	}
-	if (baby->getMethod() == "POST")
-	{
-		request* temp = new myPost(baby);
-		delReq(fd);
-		_requests[fd] = temp;
-		return true;
-	}
-	if (baby->getMethod() == "DELETE")
-	{
-		request* temp = new myDelete(baby);
-		delReq(fd);
-		_requests[fd] = temp;
-		return true;
+		if (method == factories[i].name)
+		{
+			request* temp = factories[i].create(baby);
+			delReq(fd);
+			_requests[fd] = temp;
+			return true;
+		}
 	}
 	return false;
 }
 
-request*	requestHandler::getReq(int fd)
+void	requestHandler::execReq(int fd)
 {
-	if (_requests.find(fd) == _requests.end())
-	{
-		throw httpResponse(INTERNAL_SERVER_ERROR);
-	}
-	return (_requests[fd]);
+	if (_requests.find(fd) != _requests.end())
+		_requests[fd]->exec();
 }
 
 void	requestHandler::addReq(int fd, serverConfig& server)
@@ -54,6 +58,9 @@ void	requestHandler::addReq(int fd, serverConfig& server)
 
 	try { setNonBlocking(fd); } catch(const std::exception& e)
 	{
+		epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
+		close(fd);
+		delReq(fd);
 		return (void)(std::cerr << e.what() << '\n');
 	}
 
@@ -62,22 +69,4 @@ void	requestHandler::addReq(int fd, serverConfig& server)
 	ev.events = EPOLLIN;
 	epoll_ctl(conf::epfd(), EPOLL_CTL_ADD, fd, &ev);
 	_requests[fd] = new request(fd, server);
-}
-
-void	requestHandler::readReq(int fd)
-{
-	try { return getReq(fd)->exec(); }
-
-	catch(const httpResponse& e)
-	{
-		e.sendResponse(fd);  // Sends the html for all methods and Errors
-	}
-	catch(const std::exception &e)
-	{
-		std::cout << e.what() << std::endl; // Catch for strange errors
-	}
-
-	delReq(fd);
-	epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
-	close(fd);
 }

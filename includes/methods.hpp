@@ -11,7 +11,8 @@ class myGet: public request
 	public:
 		myGet(request* baby);
 		~myGet();
-		void			process();
+		StatusCode	setUpMethod();
+		StatusCode	processMethod();
 };
 
 class myPost: public request
@@ -24,7 +25,8 @@ class myPost: public request
 		myPost(request* baby);
 		//myPost(int fd, std::string target, location& loc);
 		~myPost();
-		void		process();
+		StatusCode	setUpMethod();
+		StatusCode	processMethod();
 };
 
 class myDelete: public request
@@ -33,5 +35,6 @@ class myDelete: public request
 		myDelete(request* baby);
 		//myDelete(int fd, std::string target, location& loc);
 		~myDelete();
-		void		process();
+		StatusCode	setUpMethod();
+		StatusCode	processMethod();
 };

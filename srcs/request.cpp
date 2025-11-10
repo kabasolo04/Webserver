@@ -1,46 +1,43 @@
 #include "WebServer.hpp"
 
-#define MAX_REQUEST_LINE 8192
-#define FINISHED 1
+request::request(int fd, serverConfig& server):
+	_server(&server),
+	_fd(fd),
+	_location(),
+	_contentLength(-1),
+	_currentFunction(READ_REQUEST_LINE)
+	{
 
-request::request(int fd, std::string target, location* loc): _fd(fd), _location(loc)
-{
-	_server = NULL;
-	nextNode(READ_HEADER);
-	std::string temp = _location->getRoot();
-	std::string locPath = _location->getPath();
-	(void)target;
-
-	if (target.find(locPath) == 0)	// In case location path is prefix of target
-		_path = temp + target.substr(locPath.size());
-	else
-		_path = temp + target; // fallback
-}
-
-request::request(int fd, serverConfig& server): _server(&server), _fd(fd), _location(&server.getDefaultLocation())
-{
-	_function = &request::readRequestLine;
-}
+	}
 
 request::request(const request& other): _location(other._location)
 {
 	*this = other;
 
-	if (_headers.find("content-length") != _headers.end() && _headers["content-length"] != "0")
-		nextNode(READ_BODY);
-	else if (_headers.find("transfer-encoding") != _headers.end() &&
-			_headers["transfer-encoding"] == "chunked")
-		nextNode(READ_CHUNKED);
-	else
-		nextNode(PROCESS);
+	_currentFunction = READ_BODY;
 
-	std::string temp = _location->getRoot();
-	std::string locPath = _location->getPath();
+	_contentLength = 0;
+	std::istringstream iss(_headers["content-length"]); 
+	iss >> _contentLength;
+
+	if (_contentLength <= 0)
+	{
+		nextFunction();
+		if (_headers.find("transfer-encoding") == _headers.end() || _headers["transfer-encoding"] != "chunked")
+			nextFunction();
+	}
+
+	_location = _server->getLocation(_path);
+
+	//std::cout << "PATH: " << _path << std::endl;
+
+	std::string temp = _location.getRoot();
+	std::string locPath = _location.getPath();
 
 	if (_path.find(locPath) == 0)	// In case location path is prefix of target
 		_path = temp + _path.substr(locPath.size());
 	else
-		_path = temp + _path; // fallback
+		_path = temp + _path;
 }
 
 request::~request() {}
@@ -49,260 +46,411 @@ request&	request::operator = (const request& other)
 {
 	if (this != &other)
 	{
-		_server			= other._server;
-		_fd				= other._fd;
-		_buffer			= other._buffer;
-		_path			= other._path;
-		_protocol		= other._protocol;
-		_headers		= other._headers;
-		_body			= other._body;
-		_contentType	= other._contentType;
-		_location		= other._location;
+		_server				= other._server;
+		_fd					= other._fd;
+		_method				= other._method;
+		_buffer				= other._buffer;
+		_path				= other._path;
+		_protocol			= other._protocol;
+		_headers			= other._headers;
+		_body				= other._body;
+		_contentType		= other._contentType;
+		_location			= other._location;
+		_contentLength		= other._contentLength;
+		_currentFunction	= other._currentFunction;
 		//_function = other._function;
 	}
 	return (*this);
 }
 
-
-bool	request::readUntil(std::string eof)
+static StatusCode	readUntil(int fd, std::string& _buffer, std::string eof)
 {
 	char buffer[BUFFER];
 
-	ssize_t len = read(_fd, buffer, sizeof(buffer));
+	int len = read(fd, buffer, sizeof(buffer));
 
-	if (len > 0)
-		_buffer.append(buffer, len);
-	else if (len == 0)
-		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
-	else if (len < 0)
-		return false;
-	return (_buffer.find(eof) != std::string::npos);
+	if (len < 0)
+		return READ_ERROR;
+
+	if (len == 0)
+		return CLIENT_DISCONECTED;
+
+	_buffer.append(buffer, len);
+	
+	if (_buffer.find(eof) != std::string::npos)
+		return FINISHED;
+ 
+	return REPEAT;
 }
 
-//bool	request::myRead(int fd)
-//{
-//	char buffer[BUFFER];
-//
-//	ssize_t len = read(fd, buffer, sizeof(buffer));
-//
-//	if (len > 0)
-//		_buffer.append(buffer, len);
-//	else if (len == 0)
-//		throw std::runtime_error("Client Disconnected | request.cpp - readSocket()");
-//	else if (len < 0)
-//		return false;
-//	return (_buffer.find(eof) != std::string::npos);
-//}
-
-struct nodeHandler
+static StatusCode	readUntil(int fd, std::string& _buffer, size_t totaLen)
 {
-	const nodes name;
-	void (request::*handler)();
-};
+	char buffer[BUFFER];
 
-void	request::nextNode(nodes node)
-{
-	static nodeHandler nodes[STATE_COUNT] =
-	{
-		{READ_HEADER,				&request::readHeader},
-		{READ_BODY,					&request::readBody},
-		{READ_CHUNKED,				&request::readChunked},
-		{PROCESS,					&request::process},
-		{END,						&request::end}
-	};
+	int len = read(fd, buffer, sizeof(buffer));
 
-	if (node == PROCESS)
-	{
-		struct epoll_event ev;
-		ev.events = EPOLLOUT | EPOLLET;
-		ev.data.fd = _fd;
-		epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);
-	}
+	if (len < 0)
+		return READ_ERROR;
 
-	_function = nodes[node].handler;
+	if (len == 0)
+		return CLIENT_DISCONECTED;
+
+	_buffer.append(buffer, len);
+
+	if (_buffer.length() >= totaLen)
+		return FINISHED;
+ 
+	return REPEAT;
 }
 
-/* Gets the header variables and puts them into a map */
-void		request::setHeaderVars()
+StatusCode	request::readRequestLine()
 {
-	size_t header_start = 0;
+	StatusCode code = readUntil(_fd, _buffer, "\n");
 
-	while (1)
+	if (_buffer.length() > _location.getRequestLineSize())
+		return BAD_REQUEST;
+
+	if (code == FINISHED)
 	{
-		size_t header_end = _buffer.find("\r\n", header_start);
-		if (header_end == std::string::npos)
-			throw httpResponse(BAD_REQUEST);
-
-		if (header_end == header_start) // empty line -> end of headers
-			break;
-
-		if (header_end - header_start > _location->getHeaderSize())
-			throw httpResponse(BAD_REQUEST);
-
-		std::string line = _buffer.substr(header_start, header_end - header_start);
-		size_t colon = line.find(":");
-		if (colon == std::string::npos)
-			throw httpResponse(LOL);
-		
-		std::string key = line.substr(0, colon);
-		std::string value = line.substr(colon + 1);
-
-		key.erase(0, key.find_first_not_of(" \t"));
-		key.erase(key.find_last_not_of(" \t") + 1);
-		std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-
-		value.erase(0, value.find_first_not_of(" \t"));
-		value.erase(value.find_last_not_of(" \t") + 1);
-
-		if (key.empty())
-			throw httpResponse(BAD_REQUEST);
-
-		_headers[key] = value;
-		header_start = header_end + 2;
-	}
-	if (_headers.find("host") == _headers.end())
-		throw httpResponse(LOL);
-
-	size_t header_end = _buffer.find("\r\n\r\n");
-	if (header_end == std::string::npos)
-		header_end = _buffer.find("\n\n");
-	_buffer.erase(0, header_end + 4);	// remove headers from buffer
-}
-
-void	request::readRequestLine()
-{
-	if (readUntil("\n") == FINISHED)
-	{
-		if (_buffer.length() > MAX_REQUEST_LINE)
-			nextNode(END);
-		
 		std::istringstream iss(_buffer);
 
-		if (!(iss >> _method >> _path >> _protocol))	// Split by spaces
-			throw httpResponse(BAD_REQUEST);
+		if (!(iss >> _method >> _path >> _protocol))
+			return BAD_REQUEST;
 
 		size_t header_end = _buffer.find("\n");
 		_buffer.erase(0, header_end + 1);
+	}
+	return code;
+}
 
-		nextNode(READ_HEADER);
-		//requestHandler::transform(_fd, this);
+static void trim(std::string& s)
+{
+	size_t start = 0;
+	while (start < s.size() && std::isspace(s[start])) start++;
+	size_t end = s.size();
+	while (end > start && std::isspace(s[end - 1])) end--;
+	s = s.substr(start, end - start);
+}
+
+#define PARSED_VARS_PER_LOOP 20
+
+StatusCode request::setUpHeader()
+{
+	while (true)
+	{
+		size_t end = _buffer.find("\r\n");
+		if (end == std::string::npos)
+			return REPEAT;
+
+		std::string line = _buffer.substr(0, end);
+		_buffer.erase(0, end + 2);
+
+		if (line.empty())
+		{
+			if (!requestHandler::transform(_fd, this))
+				return METHOD_NOT_ALLOWED;
+
+			//std::cout << "HEADER" << std::endl;
+			return REPEAT;
+		}
+
+		size_t colon = line.find(':');
+		if (colon == std::string::npos)
+			return BAD_REQUEST;
+
+		std::string key = line.substr(0, colon);
+		std::string value = line.substr(colon + 1);
+		trim(key);
+		trim(value);
+
+		_headers[key] = value;
 	}
 }
 
-void	request::readHeader()
+StatusCode	request::readHeader()
 {
-	if (readUntil("\r\n\r\n") == FINISHED)	// HeaderEnd
-	{
-		setHeaderVars();
+	StatusCode	code = readUntil(_fd, _buffer, "\r\n\r\n");
 
-		_location = &_server->getLocation(_path);
+	if (_buffer.length() > _location.getHeaderSize())
+		return BAD_REQUEST;
 
-		if (!requestHandler::transform(_fd, this))
-			throw httpResponse(LOL);
-	}
+	if (code < ERRORS)
+		code = setUpHeader();
+
+	return code;
 }
 
-void request::readBody()
+StatusCode request::readBody()
 {
-	char buffer[BUFFER];
-	ssize_t len = read(_fd, buffer, sizeof(buffer));
+	StatusCode code = readUntil(_fd, _buffer, _contentLength);
 
-	if (len > 0)
+	if (_buffer.length() > _location.getBodySize())
+		return BAD_REQUEST;
+
+	return code;
+}
+
+
+StatusCode request::readChunked()
+{
+	StatusCode	code = readUntil(_fd, _buffer, "\r\n");
+
+	if (code == FINISHED)
 	{
-		_buffer.append(buffer, len);
-		size_t content_length = 0;
-		std::istringstream iss(_headers["content-length"]); 
-		iss >> content_length;
+		std::cout << "CHUNKED" << std::endl;
+		return FINISHED;	// Gotta fill this
+	}
+	return code;
+}
+
+/*
+StatusCode request::readChunked()	// Not Finished
+{
+	StatusCode	code = readUntil(_fd, "\r\n");
+
+	if (code == FINISHED)
+	{
+		// Parse chunk size (in hex)
+		std::string size_str = _buffer.substr(0, line_end);
+		std::istringstream iss(size_str);
+		size_t chunk_size = 0;
+		iss >> std::hex >> chunk_size;
 		if (iss.fail())
 			throw httpResponse(BAD_REQUEST);
 
-		if (_buffer.size() >= content_length)
+		// Remove size line
+		_buffer.erase(0, line_end + 2);
+
+		// Check if we already have the full chunk
+		if (_buffer.size() < chunk_size + 2) // +2 for trailing \r\n
+			return; // incomplete chunk, wait for next EPOLLIN
+
+		// Append chunk to body
+		_body.append(_buffer.substr(0, chunk_size));
+		_buffer.erase(0, chunk_size + 2);
+
+		// End of transfer
+		if (chunk_size == 0)
 		{
 			_body = _buffer;
-			nextNode(PROCESS);	// Done reading body
+			return FINISHED;
 		}
+
 	}
-	else if (len == 0)
-		throw std::runtime_error("Client disconnected");
-	else if (len < 0)
-		throw std::runtime_error("Read error");
+	return REPEAT; // need more data
 }
+*/
 
-void request::readChunked()
-{
-	char buffer[BUFFER];
-	ssize_t len = read(_fd, buffer, sizeof(buffer));
+StatusCode	request::setUpMethod()		{ return (FINISHED);	}	// Methods must fill it
+StatusCode	request::processMethod()	{ return (BIG_ERRORS);	}	// Methods must fill it
 
-	if (len > 0)
-		_buffer.append(buffer, len);
-	else if (len == 0)
-		throw std::runtime_error("Client disconnected");
-	else if (len < 0 && (errno != EAGAIN && errno != EWOULDBLOCK))
-		throw std::runtime_error("Read error");
-
-	// Find the end of the next chunk size line
-	size_t line_end = _buffer.find("\r\n");
-	if (line_end == std::string::npos)
-		return; // need more data
-
-	// Parse chunk size (in hex)
-	std::string size_str = _buffer.substr(0, line_end);
-	std::istringstream iss(size_str);
-	size_t chunk_size = 0;
-	iss >> std::hex >> chunk_size;
-	if (iss.fail())
-		throw httpResponse(BAD_REQUEST);
-
-	// Remove size line
-	_buffer.erase(0, line_end + 2);
-
-	// Check if we already have the full chunk
-	if (_buffer.size() < chunk_size + 2) // +2 for trailing \r\n
-		return; // incomplete chunk, wait for next EPOLLIN
-
-	// Append chunk to body
-	_body.append(_buffer.substr(0, chunk_size));
-	_buffer.erase(0, chunk_size + 2);
-
-	// End of transfer
-	if (chunk_size == 0)
-	{
-		_body = _buffer;
-		nextNode(PROCESS);
-	}
-}
-
-void	request::process() {}
-
-void	request::end() {}
-
-//void	request::response(StatusCode code)
+//static void	buildResponse(int fd, StatusCode code)
 //{
-//	_code = code;
-//	if (_location->getErrorPages().find(code) != _location->getErrorPages().end())
-//	{
+//	struct epoll_event ev;
+//	ev.events = EPOLLOUT | EPOLLET;
+//	ev.data.fd = fd;
+//	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
 //
-//	}
+//	std::stringstream response;
+//		response << "HTTP/1.1 " << code << " " << getReasonPhrase(code).c_str() << "\r\n"
+//				<< "Content-Type: text/html\r\n"
+//				//<< "Content-Length: " << getReasonPhrase(code).size() << "\r\n\r\n"
+//				<< getReasonPhrase(code);
+//	write(fd, response.str().c_str(), response.str().size());
 //}
 
-void	request::printHeaders()
+void	request::response(StatusCode code)
 {
-	std::cout << "===HEADERS===" << std::endl;
-	std::cout << "Path: " << _path << std::endl;
-	std::cout << "Protocol: " << _protocol << std::endl;
-	std::map<std::string, std::string>::iterator it;
-	for (it = _headers.begin(); it != _headers.end(); ++it)
-	std::cout << it->first << ": " << it->second << std::endl;
-	std::cout << "=============" << std::endl;
+	std::cout << "ERRORRRRRRRRR" << std::endl;
+	if (code >= BIG_ERRORS)
+		return (void)end();
+	
+	std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(code);
+
+	struct epoll_event ev;
+	ev.events = EPOLLOUT;
+	ev.data.fd = _fd;
+	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);
+
+	std::stringstream response;
+			
+	response << "HTTP/1.1 " << code << " " << getReasonPhrase(code).c_str() << "\r\n" << "Content-Type: text/html\r\n";
+
+	if (it == _location.getErrorPages().end())
+	{
+		response << "Content-Length: " << getReasonPhrase(code).length() << "\r\n" << "\r\n";
+		_buffer.clear();
+		response << code << " " << getReasonPhrase(code);
+		write(_fd, response.str().c_str(), response.str().size());
+		end();
+		return ;
+	}
+	else
+	{
+		response << "Transfer-Encoding: chunked\r\n" << "\r\n";ss
+		_buffer.clear();
+		_infile = open(it->second.c_str(), O_RDONLY);
+
+		if (_infile < 0)
+		{
+			perror("open");
+			end();
+			return ;
+		}
+
+		_currentFunction = READ_AND_SEND;
+	}
+	write(_fd, response.str().c_str(), response.str().size());
 }
 
-const std::string& request::getContentType() const { return _contentType; }
-const std::string& request::getBody() const { return _body; }
-const std::string& request::getMethod() const { return _method; }
-const std::string& request::getPath() const { return _path; }
-const std::string& request::getQuery() const { return _query; }
+//static void	readResponse(std::string name)
+//{
+//
+//}
+
+void sendChunk(int fd, const std::string &data)
+{
+    std::ostringstream chunk;
+    chunk << std::hex << data.size() << "\r\n";
+    chunk << data << "\r\n";
+    write(fd, chunk.str().c_str(), chunk.str().size());
+}
+
+StatusCode	request::readAndSend()
+{
+	char buf[50];
+	ssize_t n = read(_infile, buf, sizeof(buf));
+
+	if (n > 0) 
+   		sendChunk(_fd, std::string(buf, n));
+
+	if (n == 0)
+	{
+		write(_fd, "0\r\n\r\n", 5);
+		return FINISHED;
+	}
+
+	return REPEAT;
+}
+
+//StatusCode	request::send()
+//{
+// 	struct epoll_event ev;
+// 	ev.events = EPOLLOUT | EPOLLET;
+// 	ev.data.fd = _fd;
+// 	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);	// Telling epoll we are changing the flow of this socket
+// 
+// 	write(_fd, _response, _response.size());
+//}
+
+StatusCode	request::end()
+{
+	requestHandler::delReq(_fd);
+	epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
+	close(_fd);
+	if (_infile > 0)
+		close(_infile);
+	return (FINISHED);
+}
+
+struct nodeHandler
+{
+	const Request name;
+	StatusCode (request::*handler)();
+};
+
+StatusCode	request::currentFunction()
+{
+	static nodeHandler nodes[END_REQUEST + 1] =
+	{
+		{READ_REQUEST_LINE, &request::readRequestLine	},
+		{READ_HEADER,		&request::readHeader		},
+		{READ_BODY,			&request::readBody			},
+		{READ_CHUNKED,		&request::readChunked		},
+		{METHOD_SET_UP,		&request::setUpMethod		},
+		{METHOD_PROCESS,	&request::processMethod		},
+		{READ_AND_SEND,		&request::readAndSend		},
+		{END_REQUEST,		&request::end				}
+	};
+
+	return (this->*nodes[_currentFunction].handler)();
+}
+
+static StatusCode getCategory(StatusCode code)
+{
+	if (code > ERRORS)
+		return ERRORS;
+	return code;
+}
+
+void	request::nextFunction()
+{
+	_currentFunction = static_cast<Request>(_currentFunction + 1);
+
+	if (_currentFunction == METHOD_SET_UP)
+	{ 
+		struct epoll_event ev;
+		ev.events = EPOLLOUT;
+		ev.data.fd = _fd;
+		epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);	// Telling epoll we are changing the flow of this socket
+	}
+}
+
+void request::exec()
+{
+	StatusCode code = currentFunction();
+
+	switch (getCategory(code))
+	{
+		case	FINISHED:	nextFunction();	break;
+		case	ERRORS:		response(code);	break;
+		case	END:		end();			break;
+		default: /*REPEAT:*/				break;
+	}
+}
+
+
+
+
+
+
+
+
+	//if (len <= 0)
+	//{
+	//	std::cout << "[ERROR]: ";
+	//	if (len == 0)
+	//		std::cout << "Client Disconnnected" << std::endl;
+	//	if (len < 0)
+	//		std::cout << "Read Error" << std::endl;
+	//	return BIG_ERRORS;
+	//}
+
+
+
+
+
+
+
+
+
+
+//void	request::printHeaders()
+//{
+//	std::cout << "===HEADERS===" << std::endl;
+//	std::cout << "Path: " << _path << std::endl;
+//	std::cout << "Protocol: " << _protocol << std::endl;
+//	std::map<std::string, std::string>::iterator it;
+//	for (it = _headers.begin(); it != _headers.end(); ++it)
+//	std::cout << it->first << ": " << it->second << std::endl;
+//	std::cout << "=============" << std::endl;
+//}
+
+const std::string& request::getContentType()	const { return _contentType; }
+const std::string& request::getBody()			const { return _body; }
+const std::string& request::getMethod()			const { return _method; }
+const std::string& request::getPath()			const { return _path; }
+const std::string& request::getQuery()			const { return _query; }
 
 void request::setBody(std::string body) { _body = body; }
 void request::setContentType(std::string contentType) { _contentType = contentType; }
-
-void	request::exec() { (this->*_function)(); }

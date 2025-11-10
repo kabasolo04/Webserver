@@ -6,7 +6,8 @@ location::location():
 	//methods(empty)
 	_autoindex(0),
 	//errorPages(empty)
-	_headerSize(10000000),
+	_requestLineSize(8192),
+	_headerSize(8192),
 	_bodySize(0),
 	_uploadEnable(0)
 	//uploadStore(empty)
@@ -15,18 +16,19 @@ location::location():
 	{}
 
 location::location(const location& _default):
-	_path(_default._path),
-	_root(_default._root),
-	_index(_default._index),
-	_methods(_default._methods),
-	_autoindex(_default._autoindex),
-	_errorPages(_default._errorPages),
-	_headerSize(_default._headerSize),
-	_bodySize(_default._bodySize),
-	_uploadEnable(_default._uploadEnable),
-	_uploadStore(_default._uploadStore),
-	_cgiRoot(_default._cgiRoot),
-	_cgiExtensions(_default._cgiExtensions)
+	_path				(_default._path),
+	_root				(_default._root),
+	_index				(_default._index),
+	_methods			(_default._methods),
+	_autoindex			(_default._autoindex),
+	_errorPages			(_default._errorPages),
+	_requestLineSize	(_default._requestLineSize),
+	_headerSize			(_default._headerSize),
+	_bodySize			(_default._bodySize),
+	_uploadEnable		(_default._uploadEnable),
+	_uploadStore		(_default._uploadStore),
+	_cgiRoot			(_default._cgiRoot),
+	_cgiExtensions		(_default._cgiExtensions)
 	{}
 
 location::location(const location& _default, int lol):
@@ -36,6 +38,7 @@ location::location(const location& _default, int lol):
 	//methods(empty)
 	_autoindex(0),
 	//errorPages(empty)
+	_requestLineSize(0),
 	_headerSize(0),
 	_bodySize(0),
 	_uploadEnable(0)
@@ -44,13 +47,6 @@ location::location(const location& _default, int lol):
 	//cgiRoot(empty)
 	{
 		(void)lol;
-		_errorPages[400] = "/errors/400.html";
-		_errorPages[403] = "/errors/403.html";
-		_errorPages[404] = "/errors/404.html";
-		_errorPages[405] = "/errors/405.html";
-		_errorPages[500] = "/errors/500.html";
-		_errorPages[502] = "/errors/502.html";
-		_errorPages[504] = "/errors/504.html";
 	}
 
 location& location::operator=(const location& other)
@@ -65,6 +61,7 @@ location& location::operator=(const location& other)
 
 		_errorPages = other._errorPages;
 
+		_requestLineSize = other._requestLineSize;
 		_headerSize = other._headerSize;
 		_bodySize = other._bodySize;
 
@@ -169,15 +166,16 @@ bool	location::methodAllowed(std::string method) const
 	return (*it == method);
 }
 
-bool	location::isAutoindex() const	{ return _autoindex;	}
+bool	location::isAutoindex() const { return _autoindex; }
 
 const std::map<int, std::string>& 	location::getErrorPages() const	{ return _errorPages; }
+
+size_t	location::getRequestLineSize()	const	{ return _requestLineSize;	}
+size_t	location::getBodySize()			const	{ return _bodySize;			}
+size_t	location::getHeaderSize()		const	{ return _headerSize;		}
 		
-size_t				location::getBodySize() const	{ return _bodySize;		}
-size_t				location::getHeaderSize() const	{ return _headerSize;	}
+bool				location::isUploadEnabled() const	{ return _uploadEnable;	}
+const std::string&	location::getUploadStore() const	{ return _uploadStore;	}
 		
-bool				location::isUploadEnabled() const	{ return _uploadEnable; }
-const std::string&	location::getUploadStore() const	{ return _uploadStore; }
-		
-const std::string& 							location::getCgiRoot() const		{ return _cgiRoot; }
-const std::map<std::string, std::string>&	location::getCgiExtensions() const	{ return _cgiExtensions; }
+const std::string& 							location::getCgiRoot() const		{ return _cgiRoot;			}
+const std::map<std::string, std::string>&	location::getCgiExtensions() const	{ return _cgiExtensions;	}

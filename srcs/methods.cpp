@@ -8,46 +8,56 @@ myGet::myGet(request* baby): request(*baby) {}
 
 myGet::~myGet() {}
 
-void myGet::process()
+StatusCode	myGet::setUpMethod()
 {
 	std::ifstream file;
 
-	setQuery();	// Strip the query from the path to separate them
+	//setQuery();	// Strip the query from the path to separate them
 
 	if (is_directory(_path))
 	{
-		if (!_location->isAutoindex())
-			_path += "/" + _location->getIndex();
+		if (!_location.isAutoindex())
+			_path += "/" + _location.getIndex();
 		else
 			generateAutoIndex();
 	}
 
 	if (!is_file(_path))
 	{
-		if (!_location->isAutoindex())
-			throw httpResponse(NOT_FOUND);
-		else
-			return generateAutoIndex();
+		if (!_location.isAutoindex())
+			return NOT_FOUND;
+		//else
+		//	return generateAutoIndex();
 	}
 
-	if (isCgiScript(_path) != "")
-	{
-		cgi("/usr/bin/php-cgi");		// adjust interpreter
-		_contentType = "text/html";		// or parse CGI headers if needed
-		return;
-	}
+	//if (isCgiScript(_path) != "")
+	//{
+	//	cgi("/usr/bin/php-cgi");		// adjust interpreter
+	//	_contentType = "text/html";		// or parse CGI headers if needed
+	//}
 
-	file.open(_path.c_str());
-	if (!file.is_open())
-		throw httpResponse(NOT_FOUND);
+	_infile = open(_path.c_str(), O_RDONLY);
+	if (_infile < 0)
+		return NOT_FOUND;
 
-	std::ostringstream oss;
+	//setNonBlocking(_infile);
 
-	oss << file.rdbuf(); // reads raw bytes into oss
-	_body = oss.str();
-	_contentType = getMimeType(_path);
+	std::ostringstream header;
+	header << "HTTP/1.1 200 OK\r\n"
+		<< "Content-Type: text/html\r\n"
+		<< "Transfer-Encoding: chunked\r\n"
+		<< "\r\n";
 
-	throw httpResponse(this);
+	write(_fd, header.str().c_str(), header.str().size());
+
+	_buffer.clear();
+
+	return FINISHED;
+}
+
+StatusCode myGet::processMethod()
+{
+	return readAndSend();
 }
 
 void	myGet::setQuery()
@@ -61,8 +71,8 @@ void	myGet::setQuery()
 
 void	myGet::generateAutoIndex()
 {
+
 	std::cout << "AUTOINDEEEX" << std::endl;
-	throw httpResponse(LOL);
 }
 
 //---------------------------------------------------------------------------//
@@ -73,10 +83,15 @@ myPost::myPost(request* baby): request(*baby) {}
 
 myPost::~myPost() {}
 
-void myPost::process()
+StatusCode	myPost::setUpMethod()
+{
+	return FINISHED;
+}
+
+StatusCode myPost::processMethod()
 {
 	if (isCgiScript(_path) != "")
-		return (cgi(isCgiScript(_path)), throw httpResponse(this));
+		return (cgi(isCgiScript(_path)), FINISHED);
 	if (_headers.find("content-type") == _headers.end())
 		throw httpResponse(BAD_REQUEST);
 
@@ -84,13 +99,13 @@ void myPost::process()
 	if (ctype.find("multipart/form-data") != std::string::npos)
 		handleMultipart();
 	else if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-		saveForm(_body, _location);
+		saveForm(_body, &_location);
 	else if (ctype.find("application/json") != std::string::npos)
-		saveForm(_body, _location);
+		saveForm(_body, &_location);
 	else
-		throw httpResponse(UNSUPPORTED_MEDIA_TYPE);
+		return UNSUPPORTED_MEDIA_TYPE;
 	_body = "<html><body><h1>Upload successful!</h1></body></html>";
-	throw httpResponse(this);
+	return FINISHED;
 }
 
 void myPost::handleMultipart()
@@ -128,9 +143,9 @@ void myPost::handleMultipart()
 
 		std::string part = _body.substr(start, next - start);
 		if (part.find("filename=") != std::string::npos)
-			saveFile(part, _location);
+			saveFile(part, &_location);
 		else
-			saveForm(part, _location);
+			saveForm(part, &_location);
 
 		if (last)
 			break;
@@ -158,7 +173,7 @@ bool myPost::chunkedCheck()
 		if (chunkSize == 0)
 		{
 			if (_buffer.size() >= pos + 4)
-			return (_buffer.erase(0, pos + 4), 1);
+				return (_buffer.erase(0, pos + 4), 1);
 			return false;
 		}
 		size_t totalNeeded = pos + 2 + chunkSize + 2;
@@ -179,10 +194,15 @@ myDelete::myDelete(request* baby): request(*baby) {}
 
 myDelete::~myDelete() {}
 
-void	myDelete::process()
+StatusCode	myDelete::setUpMethod()
+{
+	return FINISHED;
+}
+
+StatusCode	myDelete::processMethod()
 {
 	if (is_directory(_path))
-		throw httpResponse(FORBIDEN);
+		return FORBIDEN;
 	if (std::remove(_path.c_str()) == 0)
 	{
 		std::string body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
@@ -194,13 +214,14 @@ void	myDelete::process()
 		switch (errno)
 		{
 			case ENOENT: // File doesn't exist
-				throw httpResponse(NOT_FOUND);
+				return NOT_FOUND;
 			case EACCES: // Permission denied
-				throw httpResponse(FORBIDEN);
+				return FORBIDEN;
 			case EPERM:  // Operation not permitted
-				throw httpResponse(FORBIDEN);
+				return FORBIDEN;
 			default:     // Something else went wrong
-				throw httpResponse(INTERNAL_SERVER_ERROR);
+				return INTERNAL_SERVER_ERROR;
 		}
 	}
+	return FINISHED;
 }
