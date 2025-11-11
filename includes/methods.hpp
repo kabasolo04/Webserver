@@ -19,7 +19,7 @@ class myPost: public request
 {
 	private:
 		//bool	chunkedCheck();
-		void	handleMultipart();
+		StatusCode	handleMultipart();
 
 	public:
 		myPost(request* baby);

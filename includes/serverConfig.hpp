@@ -42,6 +42,8 @@ class serverConfig
 		const std::string&	serverName();
 };
 
+bool setNonBlocking(int fd);
+
 /*
 
 struct LocationConfig

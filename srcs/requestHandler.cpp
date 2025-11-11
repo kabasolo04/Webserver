@@ -1,15 +1,5 @@
 #include "WebServer.hpp"
 
-void	setNonBlocking(int fd)
-{
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1)
-        throw std::runtime_error("fcntl(F_GETFL) failed");
-
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
-        throw std::runtime_error("fcntl(F_SETFL) failed");
-}
-
 std::map<int, request*> requestHandler::_requests;
 
 void	requestHandler::delReq(int fd)
@@ -66,12 +56,12 @@ void	requestHandler::addReq(int fd, serverConfig& server)
 	if(_requests.find(fd) != _requests.end())
 		delReq(fd);
 
-	try { setNonBlocking(fd); } catch(const std::exception& e)
+	if (setNonBlocking(fd) == false)
 	{
 		epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
 		close(fd);
 		delReq(fd);
-		return (void)(std::cerr << e.what() << '\n');
+		return ;
 	}
 
 	epoll_event ev = {};

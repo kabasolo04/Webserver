@@ -23,6 +23,14 @@ std::vector<listenEntry>::iterator	serverConfig::listenEnd()	{ return _listen.en
 
 const std::string&	serverConfig::serverName()	{ return _serverName;	}
 
+bool setNonBlocking(int fd)
+{
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
+		return false;
+	return fcntl(fd, F_SETFL, flags | O_NONBLOCK) != -1;
+}
+
 void	setSocket(listenEntry& entry)
 {
 	entry._fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -50,7 +58,8 @@ void	setSocket(listenEntry& entry)
 	if (listen(entry._fd, SOMAXCONN) < 0)
 		return (close(entry._fd), throw std::runtime_error("Listen failed | serverConfig.cpp - setSocket()"));
 
-	setNonBlocking(entry._fd);
+	if (setNonBlocking(entry._fd) == false)
+		return (close(entry._fd), throw std::runtime_error("setNonBlocking() failed | serverConfig.cpp - setSocket()"));
 
 	struct epoll_event	event;
 	event.events = EPOLLIN;		// Only watching for input events

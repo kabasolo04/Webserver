@@ -19,12 +19,10 @@ enum Request
 enum StatusCode
 {
 //-------------------- FLAGS
-	END,
 	REPEAT,
 	FINISHED,
-	TRANSFORM,
+	STATUS,
 //-------------------- ERRORS
-	ERRORS					= 199,
 	OK						= 200,
 	NO_CONTENT				= 204,
 	FOUND					= 302,
@@ -36,8 +34,8 @@ enum StatusCode
 	UNSUPPORTED_MEDIA_TYPE	= 415,
 	INTERNAL_SERVER_ERROR	= 500,
 	NOT_IMPLEMENTED			= 501,
-	GATEWAY_TIMEOUT			= 696,	// fake
-	LOL						= 700,
+	GATEWAY_TIMEOUT			= 504,
+	LOL						= 999,
 	BIG_ERRORS,
 	READ_ERROR,
 	CLIENT_DISCONECTED,
@@ -61,7 +59,7 @@ class request
 		std::string							_query;
 		
 		location							_location;
-		int									_contentLength;
+		size_t								_contentLength;
 		Request								_currentFunction;
 		
 //		StatusCode (request::*_function)();
@@ -83,18 +81,15 @@ class request
 		StatusCode			readAndSend();
 		StatusCode			end();
 
-		void						cgi(std::string command);
-		std::string					isCgiScript(std::string filename);
-		void						execChild(const std::string &command, int outPipe[2], int inPipe[2]);
-		void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
-		std::vector<std::string>	build_env();
+		//void						cgi(std::string command);
+		//std::string				isCgiScript(std::string filename);
+		//void						execChild(const std::string &command, int outPipe[2], int inPipe[2]);
+		//void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
+		//std::vector<std::string>	build_env();
 
-
-
-
-		void	nextFunction();
+		void		nextFunction();
 		StatusCode	currentFunction();
-		void	response(StatusCode code);
+		void		response(StatusCode code);
 	
 		request(const request& other);
 		request(int fd, std::string target, location* loc);
