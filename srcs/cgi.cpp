@@ -1,27 +1,26 @@
 #include "WebServer.hpp"
 
-std::string request::isCgiScript(std::string filename)
+StatusCode request::isCgiScript(std::string filename)
 {
 	size_t pos = filename.find_last_of(".");
 	if (pos == std::string::npos)
-		throw httpResponse(BAD_REQUEST);
+		return BAD_REQUEST;
 	std::string extension = filename.substr(pos + 1);
 	std::map<std::string, std::string> ext = _location.getCgiExtensions();
 	std::map<std::string, std::string>::iterator it = ext.find(extension);
     if (it == ext.end())
-        return "";
-    return it->second;
-/* 	if (extension == "php")
-		return "/usr/bin/php-cgi";
-	return ""; */
+        _cgiCommand = "";
+    _cgiCommand = it->second;
+	return OK;
 }
 
-static std::string	getAbsolutePath(const std::string &path)
+static bool	getAbsolutePath(std::string &path)
 {
 	char absPath[PATH_MAX];
 	if (realpath(path.c_str(), absPath) == NULL)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
-	return std::string(absPath);
+		return false;
+	path = std::string(absPath);
+	return true;
 }
 
 
@@ -41,8 +40,6 @@ std::vector<char *> buildArgv(const std::string &command, const std::string &pat
 		argv.push_back(const_cast<char *>("ignore"));
 		argv.push_back(const_cast<char *>(path.c_str()));
 	}
-	else
-		throw httpResponse(INTERNAL_SERVER_ERROR);
 	argv.push_back(NULL);
 	return argv;
 }
@@ -72,7 +69,7 @@ std::vector<std::string> request::build_env()
 	return (env_str);
 }
 
-void request::execChild(const std::string &command, int outPipe[2], int inPipe[2])
+void request::execChild(int outPipe[2], int inPipe[2])
 {
 	close(outPipe[0]);
 	dup2(outPipe[1], STDOUT_FILENO);
@@ -85,7 +82,8 @@ void request::execChild(const std::string &command, int outPipe[2], int inPipe[2
 		close(inPipe[0]);
 	}
 
-	std::vector<char *> argv = buildArgv(command, _path);
+	std::vector<char *> argv = buildArgv(_cgiCommand, _path);
+	if (argv.empty()) exit(1);
 	std::vector<std::string> env_str = build_env();
 	std::vector<char *> envp;
 	for (size_t i = 0; i < env_str.size(); ++i)
@@ -101,14 +99,26 @@ void request::execChild(const std::string &command, int outPipe[2], int inPipe[2
 	exit(1);
 }
 
+StatusCode request::handleCgi()
+{
+	StatusCode code;
+	code = readAndSend();
+	if (code == REPEAT) return REPEAT;
+
+	int status = 0;
+	waitpid(_cgiChild, &status, 0);
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		return INTERNAL_SERVER_ERROR;
+	return code;
+}
+
 /* Reads from child and makes shure it does not hang in case of an infinite loop */
-std::string readChild(pid_t child, int outPipe[2])
+/* bool readChild(pid_t child, int outPipe[2], std::string *response)
 {
 	const int		CGI_TIMEOUT = 3; // seconds
 	const int		CHECK_INTERVAL = 1; // seconds
 	time_t			start = time(NULL);
 	char			buf[BUFFER];
-	std::string		response;
 	fd_set 			readfds;
 	struct timeval	tv;
 
@@ -119,7 +129,7 @@ std::string readChild(pid_t child, int outPipe[2])
 		{
 			kill(child, SIGKILL);
 			waitpid(child, NULL, 0);
-			throw httpResponse(GATEWAY_TIMEOUT);
+			return (GATEWAY_TIMEOUT);
 		}
 
 		FD_ZERO(&readfds);
@@ -132,7 +142,7 @@ std::string readChild(pid_t child, int outPipe[2])
 		{
 			if (errno == EINTR)
 				continue; // signal interruption, just retry
-			throw httpResponse(INTERNAL_SERVER_ERROR);
+			return (INTERNAL_SERVER_ERROR);
 
 		}
 		if (ready == 0)
@@ -144,17 +154,17 @@ std::string readChild(pid_t child, int outPipe[2])
 		if (n < 0)
 		{
 			if (errno != EINTR)
-				throw httpResponse(INTERNAL_SERVER_ERROR);
+				return (INTERNAL_SERVER_ERROR);
 			continue;
 		}
 
-		response.append(buf, n);
+		response->append(buf, n);
 	}
 	close(outPipe[0]);
-	return response;
-}
+	return OK;
+} */
 
-void request::handleParent(pid_t child, int outPipe[2], int inPipe[2])
+/* bool request::handleParent(pid_t child, int outPipe[2], int inPipe[2])
 {
 	close(outPipe[1]);
 	if (_method == "POST")
@@ -163,12 +173,13 @@ void request::handleParent(pid_t child, int outPipe[2], int inPipe[2])
 		write(inPipe[1], _body.c_str(), _body.size());
 		close(inPipe[1]);
 	}
-	std::string response = readChild(child, outPipe);
+	std::string response;
+	if (readChild(child, outPipe, &response) == false) return 0;
 
 	int status = 0;
 	waitpid(child, &status, 0);
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (0);
 	// Split headers and body
 	size_t headerEnd = response.find("\r\n\r\n");
 	std::string cgiHeaders;
@@ -190,15 +201,13 @@ void request::handleParent(pid_t child, int outPipe[2], int inPipe[2])
 	else
 		_contentType = "text/html";
 	_body = cgiBody;
-}
+} */
 
-void request::cgi(std::string command)
+StatusCode request::cgiSetup()
 {
-	if (command == "")
-		throw httpResponse(FORBIDEN);
 	int outPipe[2];
 	if (pipe(outPipe) == -1)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (INTERNAL_SERVER_ERROR);
 
 	int inPipe[2];
 	if (_method == "POST" && pipe(inPipe) == -1)
@@ -206,11 +215,11 @@ void request::cgi(std::string command)
 		close(outPipe[0]);
 		close(outPipe[1]);
 		std::cerr << "CGI post inpipe failed" << std::endl;
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (INTERNAL_SERVER_ERROR);
 	}
 
-	pid_t child = fork();
-	if (child == -1)
+	_cgiChild = fork();
+	if (_cgiChild == -1)
 	{
 		close(outPipe[0]);
 		close(outPipe[1]);
@@ -220,11 +229,20 @@ void request::cgi(std::string command)
 			close(inPipe[1]);
 		}
 		std::cerr << "CGI fork failed" << std::endl;
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (INTERNAL_SERVER_ERROR);
 	}
-	_path = getAbsolutePath(_path);
-	if (child == 0)
-		execChild(command, outPipe, inPipe);
-	else
-		handleParent(child, outPipe, inPipe);
+
+	if (!getAbsolutePath(_path)) return INTERNAL_SERVER_ERROR;
+
+	if (_cgiChild == 0) execChild(outPipe, inPipe);
+
+	close(outPipe[1]);
+	if (_method == "POST")
+	{
+		close(inPipe[0]);
+		write(inPipe[1], _body.c_str(), _body.size());
+		close(inPipe[1]);
+	}
+	_infile = outPipe[0];
+	return OK;
 }

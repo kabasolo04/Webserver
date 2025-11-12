@@ -155,6 +155,11 @@ StatusCode	request::readRequestLine()
 		size_t header_end = _buffer.find("\n");
 		_buffer.erase(0, header_end + 1);
 
+		StatusCode code = setUpHeader();
+
+		if (code > ERROR || code == END)
+			return code;
+
 		return FINISHED;
 	}
 	return code;
@@ -184,7 +189,7 @@ StatusCode request::setUpHeader()
 		{
 			if (!requestHandler::transform(_fd, this))
 				return METHOD_NOT_ALLOWED;
-			return REPEAT;
+			return END;
 		}
 
 		size_t colon = line.find(':');

@@ -113,9 +113,9 @@ myGet::~myGet() {}
 
 StatusCode	myGet::setUpMethod()
 {
-	std::ifstream file;
+	std::ifstream	file;
 
-	//setQuery();	// Strip the query from the path to separate them
+	setQuery();	// Strip the query from the path to separate them
 
 	if (is_directory(_path))
 	{
@@ -133,14 +133,9 @@ StatusCode	myGet::setUpMethod()
 		//	return generateAutoIndex();
 	}
 
-	//if (isCgiScript(_path) != "")
-	//{
-	//	cgi("/usr/bin/php-cgi");		// adjust interpreter
-	//	_contentType = "text/html";		// or parse CGI headers if needed
-	//}
-
-	//if (isCgiScript(_path) != "")
-	//	return(cgi(isCgiScript(_path)), returnthis));
+	// See if it's a cgi file and assign the appropiate cgi and execute
+	if (isCgiScript(_path) > ERROR) return BAD_REQUEST;
+	if (_cgiCommand != "") return cgiSetup();
 
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
@@ -151,6 +146,7 @@ StatusCode	myGet::setUpMethod()
 
 StatusCode myGet::processMethod()
 {
+	if (_cgiCommand != "") return handleCgi();
 	return readAndSend();
 }
 

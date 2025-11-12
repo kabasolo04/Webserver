@@ -21,8 +21,10 @@ enum StatusCode
 //-------------------- FLAGS
 	REPEAT,
 	FINISHED,
+	END,
 	STATUS,
 //-------------------- ERRORS
+	ERROR,
 	OK						= 200,
 	NO_CONTENT				= 204,
 	FOUND					= 302,
@@ -57,6 +59,8 @@ class request
 		std::string							_body;
 		std::string							_contentType;
 		std::string							_query;
+		std::string							_cgiCommand;
+		pid_t								_cgiChild;
 		
 		location							_location;
 		size_t								_contentLength;
@@ -81,11 +85,12 @@ class request
 		StatusCode			readAndSend();
 		StatusCode			end();
 
-		//void						cgi(std::string command);
-		//std::string				isCgiScript(std::string filename);
-		//void						execChild(const std::string &command, int outPipe[2], int inPipe[2]);
-		//void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
-		//std::vector<std::string>	build_env();
+		StatusCode					cgiSetup();
+		StatusCode 					handleCgi();
+		StatusCode					isCgiScript(std::string filename);
+		void						execChild(int outPipe[2], int inPipe[2]);
+		bool						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
+		std::vector<std::string>	build_env();
 
 		void		nextFunction();
 		StatusCode	currentFunction();
