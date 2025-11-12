@@ -129,8 +129,8 @@ StatusCode	myGet::setUpMethod()
 	{
 		if (!_location.isAutoindex())
 			return NOT_FOUND;
-		//else
-		//	return generateAutoIndex();
+		else
+			generateAutoIndex();
 	}
 
 	//if (isCgiScript(_path) != "")
@@ -165,7 +165,6 @@ void	myGet::setQuery()
 
 void	myGet::generateAutoIndex()
 {
-
 	std::cout << "AUTOINDEEEX" << std::endl;
 }
 
@@ -235,7 +234,7 @@ StatusCode myPost::handleMultipart()
 	if (p == std::string::npos)
 		return BAD_REQUEST;
 
-	size_t boundaryStart = p + 9; // length of "boundary="
+	size_t boundaryStart = p + 9;
 	if (boundaryStart >= contentType.size())
 		return BAD_REQUEST; // malformed header
 
@@ -244,7 +243,7 @@ StatusCode myPost::handleMultipart()
 	size_t start = _body.find(boundary);
 	if (start == std::string::npos)
 		return BAD_REQUEST;
-	start += boundary.size() + 2; // skip boundary + CRLF
+	start += boundary.size() + 2;
 
 	while (start < _body.size())
 	{
@@ -258,7 +257,7 @@ StatusCode myPost::handleMultipart()
 			last = true;
 		}
 
-		if (next < start) // sanity check
+		if (next < start)
 			return BAD_REQUEST;
 
 		if (last)

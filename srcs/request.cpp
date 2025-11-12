@@ -98,46 +98,6 @@ static StatusCode	myRead(int fd, std::string& _buffer)
 	return REPEAT;
 }
 
-//static StatusCode	readUntil(int fd, std::string& _buffer, std::string eof)
-//{
-//	char buffer[BUFFER];
-//
-//	int len = read(fd, buffer, sizeof(buffer));
-//
-//	if (len < 0)
-//		return READ_ERROR;
-//
-//	if (len == 0)
-//		return CLIENT_DISCONECTED;
-//
-//	_buffer.append(buffer, len);
-//	
-//	if (_buffer.find(eof) != std::string::npos)
-//		return FINISHED;
-// 
-//	return REPEAT;
-//}
-//
-//static StatusCode	readUntil(int fd, std::string& _buffer, size_t totaLen)
-//{
-//	char buffer[BUFFER];
-//
-//	int len = read(fd, buffer, sizeof(buffer));
-//
-//	if (len < 0)
-//		return READ_ERROR;
-//
-//	if (len == 0)
-//		return CLIENT_DISCONECTED;
-//
-//	_buffer.append(buffer, len);
-//
-//	if (_buffer.length() >= totaLen)
-//		return FINISHED;
-// 
-//	return REPEAT;
-//}
-
 StatusCode	request::readRequestLine()
 {
 	StatusCode code = myRead(_fd, _buffer);
@@ -154,6 +114,11 @@ StatusCode	request::readRequestLine()
 
 		size_t header_end = _buffer.find("\n");
 		_buffer.erase(0, header_end + 1);
+
+		StatusCode code = setUpHeader();
+
+		if (code > ERROR || code == END)
+			return code;
 
 		return FINISHED;
 	}
@@ -184,7 +149,7 @@ StatusCode request::setUpHeader()
 		{
 			if (!requestHandler::transform(_fd, this))
 				return METHOD_NOT_ALLOWED;
-			return REPEAT;
+			return END;
 		}
 
 		size_t colon = line.find(':');
@@ -207,8 +172,10 @@ StatusCode	request::readHeader()
 	if (_buffer.length() > _location.getHeaderSize())
 		return BAD_REQUEST;
 
-	if (code < BIG_ERRORS)
+	if (code < ERROR)
+	{
 		code = setUpHeader();
+	}
 
 	return code;
 }
@@ -340,7 +307,7 @@ void	request::response(StatusCode code)
 
 	if (code == OK && _body.length() > 0)
 	{
-		response << "Content-Length: " << _body.length() << "\r\n\r\n";
+		response << "Content-Length: " << _body.length() << "\r\n" << "\r\n";
 		response << _body;
 		write(_fd, response.str().c_str(), response.str().size());
 		end();
@@ -351,7 +318,7 @@ void	request::response(StatusCode code)
 		std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(code);
 		if (it == _location.getErrorPages().end())
 		{
-			response << "Content-Length: " << getReasonPhrase(code).length() + 4 << "\r\n\r\n";
+			response << "Content-Length: " << getReasonPhrase(code).length() + 4 << "\r\n" << "\r\n";
 			response << code << " " << getReasonPhrase(code);
 			write(_fd, response.str().c_str(), response.str().size());
 			end();
@@ -372,8 +339,8 @@ void	request::response(StatusCode code)
 
 StatusCode	request::end()
 {
-	requestHandler::delReq(_fd);
 	epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
+	requestHandler::delReq(_fd);
 	close(_fd);
 	if (_infile > 0)
 		close(_infile);

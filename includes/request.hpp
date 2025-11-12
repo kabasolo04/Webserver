@@ -21,8 +21,10 @@ enum StatusCode
 //-------------------- FLAGS
 	REPEAT,
 	FINISHED,
+	END,
 	STATUS,
 //-------------------- ERRORS
+	ERROR,
 	OK						= 200,
 	NO_CONTENT				= 204,
 	FOUND					= 302,

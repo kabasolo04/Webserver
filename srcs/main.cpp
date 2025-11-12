@@ -1,6 +1,13 @@
 #include "WebServer.hpp"
+#include <csignal>
 
-#define MAX_EVENTS 10
+#define MAX_EVENTS 100
+
+void signalHandler(int sig)
+{
+	std::cout << "Interrupt handle " << sig << std::endl;
+	exit(sig);
+}
 
 void myAccept(int fd, serverConfig& server)
 {
@@ -46,13 +53,13 @@ int main(int argc, char **argv)
 		return (std::cout << "[ERROR]: " << e.what() << std::endl, 1);
 	}
 
+	signal(SIGINT, signalHandler);
+
 	struct epoll_event	events[MAX_EVENTS];
 
 	while (1)
 	{
 		int n = epoll_wait(conf::epfd(), events, MAX_EVENTS, -1);
-	
-		std::cout << "epoll loop" << std::endl;
 
 		if (n < 0)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
