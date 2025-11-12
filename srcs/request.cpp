@@ -117,7 +117,10 @@ StatusCode	request::readRequestLine()
 
 		StatusCode code = setUpHeader();
 
-		if (code > ERROR || code == END)
+		if (code == END)
+			return REPEAT;
+
+		if (code > ERROR)
 			return code;
 
 		return FINISHED;
@@ -370,6 +373,7 @@ void request::exec()
 
 	switch (code)
 	{
+		case	END:
 		case	REPEAT:						break;
 		case	FINISHED:	nextFunction();	break;
 		default: 			response(code);	break;

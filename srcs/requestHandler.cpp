@@ -37,8 +37,14 @@ bool requestHandler::transform(int fd, request* baby)
 		if (method == factories[i].name)
 		{
 			request* temp = factories[i].create(baby);
-			delReq(fd);
-			_requests[fd] = temp;
+
+			std::map<int, request*>::iterator it = _requests.find(fd);
+			if (it != _requests.end())
+			{
+				delete it->second;
+				_requests[fd] = temp;
+			}
+	
 			return true;
 		}
 	}
