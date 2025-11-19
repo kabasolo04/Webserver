@@ -64,6 +64,8 @@ int main(int argc, char **argv)
 		if (n < 0)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
 
+		std::cout << "Epoll Loop" << std::endl;
+		
 		for (int i = 0; i < n; i++)
 			if (!newRequest(events[i].data.fd))
 				requestHandler::execReq(events[i].data.fd);

@@ -4,15 +4,44 @@
 
 #define BUFFER 500
 
-enum Request
+enum nodes
+{
+	FIRST,
+	SECOND,
+	THIRD,
+	FOURTH,
+	FIVETH
+};
+
+enum ReadRequest
 {
 	READ_REQUEST_LINE,
 	READ_HEADER,
 	READ_BODY,
-	READ_CHUNKED,
-	METHOD_SET_UP,
-	METHOD_PROCESS,
+	END_READ
+};
+
+enum MethodSetUp
+{
+	GET,
+	POST,
+	DELETE,
+	END_SET_UP
+};
+
+enum HandleResponse
+{
 	READ_AND_SEND,
+	AUTOINDEX,
+	CGI,
+	END_RESPONSE
+};
+
+enum Request
+{
+	READ_REQUEST,
+	METHOD_SET_UP,
+	HANDLE_RESPONSE,
 	END_REQUEST
 };
 
@@ -21,11 +50,13 @@ enum StatusCode
 //-------------------- FLAGS
 	REPEAT,
 	FINISHED,
+	TRANSFORM,
 	END,
 	STATUS,
 //-------------------- ERRORS
-	ERROR,
+	RESPONSE,
 	OK						= 200,
+	ERRORS,
 	NO_CONTENT				= 204,
 	FOUND					= 302,
 	BAD_REQUEST				= 400,
@@ -46,9 +77,8 @@ enum StatusCode
 class request
 {
 	private:
-		serverConfig*	_server;
-
-	protected:
+		serverConfig*						_server;
+	
 		int									_fd;
 		int									_infile;
 		std::string							_method;
@@ -62,26 +92,28 @@ class request
 		
 		location							_location;
 		size_t								_contentLength;
+	
 		Request								_currentFunction;
+		ReadRequest							_currentRead;
+		StatusCode							_code;
 		
-//		StatusCode (request::*_function)();
-
-		//void		setReqLineVars();
 		//void		printHeaders();
 		
-		StatusCode	readRequestLine();
-		StatusCode	readHeader();
+		StatusCode	setUpRequestLine();
 		StatusCode	setUpHeader();
-		StatusCode	readBody();
-		StatusCode	readChunked();
+		StatusCode	setUpBody();
 
-		// The methods must to fill this functions, else an error will the shown
-		virtual StatusCode	setUpMethod();
-		virtual StatusCode	processMethod();
+		StatusCode	setUpGet();
+		StatusCode	setUpPost();
+		StatusCode	setUpDelete();
 
-		StatusCode			send();
-		StatusCode			readAndSend();
-		StatusCode			end();
+		StatusCode	readAndSend();
+//		StatusCode	autoindex();
+//		StatusCode	cgi();
+
+		StatusCode	readRequest();
+		StatusCode	setUpMethod();
+		StatusCode	response();
 
 		//void						cgi(std::string command);
 		//std::string				isCgiScript(std::string filename);
@@ -89,12 +121,9 @@ class request
 		//void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
 		//std::vector<std::string>	build_env();
 
-		void		nextFunction();
-		StatusCode	currentFunction();
-		void		response(StatusCode code);
+		void		end();
 	
 		request(const request& other);
-		request(int fd, std::string target, location* loc);
 		request& operator = (const request& other);
 		
 	public:

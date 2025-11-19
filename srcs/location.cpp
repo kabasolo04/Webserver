@@ -19,19 +19,19 @@ location::location():
 	}
 
 location::location(const location& _default):
-	_path				(_default._path),
-	_root				(_default._root),
-	_index				(_default._index),
-	_methods			(_default._methods),
-	_autoindex			(_default._autoindex),
-	_errorPages			(_default._errorPages),
-	_requestLineSize	(_default._requestLineSize),
-	_headerSize			(_default._headerSize),
-	_bodySize			(_default._bodySize),
-	_uploadEnable		(_default._uploadEnable),
-	_uploadStore		(_default._uploadStore),
-	_cgiRoot			(_default._cgiRoot),
-	_cgiExtensions		(_default._cgiExtensions)
+	_path				(_default._path				),
+	_root				(_default._root				),
+	_index				(_default._index			),
+	_methods			(_default._methods			),
+	_autoindex			(_default._autoindex		),
+	_errorPages			(_default._errorPages		),
+	_requestLineSize	(_default._requestLineSize	),
+	_headerSize			(_default._headerSize		),
+	_bodySize			(_default._bodySize			),
+	_uploadEnable		(_default._uploadEnable		),
+	_uploadStore		(_default._uploadStore		),
+	_cgiRoot			(_default._cgiRoot			),
+	_cgiExtensions		(_default._cgiExtensions	)
 	{}
 
 location::location(const location& _default, int lol):
@@ -133,17 +133,17 @@ void location::handleDirective(const std::string& key, TOKEN_IT& it, TOKEN_IT& e
 {
 	static DirectiveHandler g_directives[HANDLER_SIZE] =
 	{
-		{"root",					&location::setRoot},
-		{"index",					&location::setIndex},
-		{"autoindex",				&location::setAutoindex},
-		{"header_size",				&location::setHeaderSize},
-		{"client_max_body_size",	&location::setBodySize},
-		{"upload_enable",			&location::setUploadEnable},
-		{"upload_store",			&location::setUploadStore},
-		{"cgi_root",				&location::setCgiRoot},
-		{"allow_methods",			&location::addMethods},
-		{"error_page",				&location::addErrorPage},
-		{"cgi_extension",			&location::addCgiExtension}
+		{"root",					&location::setRoot			},
+		{"index",					&location::setIndex			},
+		{"autoindex",				&location::setAutoindex		},
+		{"header_size",				&location::setHeaderSize	},
+		{"client_max_body_size",	&location::setBodySize		},
+		{"upload_enable",			&location::setUploadEnable	},
+		{"upload_store",			&location::setUploadStore	},
+		{"cgi_root",				&location::setCgiRoot		},
+		{"allow_methods",			&location::addMethods		},
+		{"error_page",				&location::addErrorPage		},
+		{"cgi_extension",			&location::addCgiExtension	}
 	};
 
 	if (it == end)

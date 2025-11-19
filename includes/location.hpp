@@ -2,9 +2,29 @@
 
 #include "WebServer.hpp"
 
+struct data
+{
+	std::string							_path;
+	std::string							_root;
+	std::string							_index;
+	std::vector<std::string>			_methods;
+	bool								_autoindex;
+	std::map<int, std::string> 			_errorPages;
+	size_t								_requestLineSize; // Isnt Parsed
+	size_t								_headerSize;
+	size_t								_bodySize;
+	bool								_uploadEnable;
+	std::string							_uploadStore;
+	std::string							_cgiRoot;
+	std::map<std::string, std::string>	_cgiExtensions;
+};
+
 class location
 {
 	private:
+
+		struct								_data;
+
 		std::string							_path;
 
 		std::string							_root;
@@ -24,21 +44,21 @@ class location
 		std::string							_cgiRoot;
 		std::map<std::string, std::string>	_cgiExtensions;
 
-		void	setRoot(TOKEN_IT& it, TOKEN_IT& end);
-		void	setIndex(TOKEN_IT& it, TOKEN_IT& end);
-		void	addMethods(TOKEN_IT& it, TOKEN_IT& end);
-		void	setAutoindex(TOKEN_IT& it, TOKEN_IT& end);
+		void	setRoot			(TOKEN_IT& it, TOKEN_IT& end);
+		void	setIndex		(TOKEN_IT& it, TOKEN_IT& end);
+		void	addMethods		(TOKEN_IT& it, TOKEN_IT& end);
+		void	setAutoindex	(TOKEN_IT& it, TOKEN_IT& end);
 
-		void	addErrorPage(TOKEN_IT& it, TOKEN_IT& end);
+		void	addErrorPage	(TOKEN_IT& it, TOKEN_IT& end);
 
-		void	setHeaderSize(TOKEN_IT& it, TOKEN_IT& end);
-		void	setBodySize(TOKEN_IT& it, TOKEN_IT& end);
+		void	setHeaderSize	(TOKEN_IT& it, TOKEN_IT& end);
+		void	setBodySize		(TOKEN_IT& it, TOKEN_IT& end);
 
-		void	setUploadEnable(TOKEN_IT& it, TOKEN_IT& end);
-		void	setUploadStore(TOKEN_IT& it, TOKEN_IT& end);
+		void	setUploadEnable	(TOKEN_IT& it, TOKEN_IT& end);
+		void	setUploadStore	(TOKEN_IT& it, TOKEN_IT& end);
 
-		void	setCgiRoot(TOKEN_IT& it, TOKEN_IT& end);
-		void	addCgiExtension(TOKEN_IT& it, TOKEN_IT& end);
+		void	setCgiRoot		(TOKEN_IT& it, TOKEN_IT& end);
+		void	addCgiExtension	(TOKEN_IT& it, TOKEN_IT& end);
 
 	public:
 		location();
@@ -52,7 +72,7 @@ class location
 
 		// GETTERS
 		
-		const std::string& 				getPath() const;	
+		const std::string& 				getPath() const;
 		const std::string& 				getRoot() const;
 		const std::string& 				getIndex() const;
 		bool							methodAllowed(std::string method) const;

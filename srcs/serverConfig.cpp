@@ -63,7 +63,7 @@ void	setSocket(listenEntry& entry)
 
 	struct epoll_event	event;
 	event.events = EPOLLIN;		// Only watching for input events
-	event.data.fd = entry._fd;	// The fd its gonna watch
+	event.data.fd = entry._fd;
 
 	if (epoll_ctl(conf::epfd(), EPOLL_CTL_ADD, entry._fd, &event) == -1)
 		throw std::runtime_error("epoll_ctl failed | serverConfig.cpp - setSocket()");
@@ -81,9 +81,9 @@ bool listenExists(listenEntry& entry)
 		{
 			if (listenIt->_host == entry._host && listenIt->_port == entry._port)
 			{
-				entry._fd = listenIt->_fd;
-				throw std::runtime_error("more than one server trying to listen to the same port | serverConfig.cpp - listenExists()");
-				return (true);
+				//entry._fd = listenIt->_fd;
+				throw std::runtime_error("Port " + entry._host + " already binded by another server | serverConfig.cpp - listenExists()");
+				//return (true);
 			}
 		}
 	}
@@ -194,7 +194,7 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 	return *this;
 }
 
-location& serverConfig::getDefaultLocation() { return (_default);	}
+location& serverConfig::getDefaultLocation() { return (_default); }
 
 location& serverConfig::getLocation(std::string path)
 {

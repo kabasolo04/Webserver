@@ -38,4 +38,5 @@
 #include "conf.hpp"
 #include "request.hpp"
 #include "requestHandler.hpp"
-#include "methods.hpp"
+
+//#include "methods.hpp"

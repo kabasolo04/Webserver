@@ -6,36 +6,15 @@ request::request(int fd, serverConfig& server):
 	_body(""),
 	_location(),
 	_contentLength(0),
-	_currentFunction(READ_REQUEST_LINE)
+	_currentFunction(READ_REQUEST),
+	_currentRead(READ_REQUEST_LINE),
+	_code(OK)
 	{}
 
-request::request(const request& other): _location(other._location)
+
+request::request(const request& other)
 {
 	*this = other;
-
-	_currentFunction = READ_BODY;
-
-	_contentLength = 0;
-	std::istringstream iss(_headers["content-length"]); 
-	iss >> _contentLength;
-
-	if (_contentLength <= 0)
-	{
-		nextFunction();
-		if (_headers.find("transfer-encoding") == _headers.end() || _headers["transfer-encoding"] != "chunked")
-			nextFunction();
-	}
-
-	_location = _server->getLocation(_path);
-	//std::cout << "PATH: " << _path << std::endl;
-
-	std::string temp = _location.getRoot();
-	std::string locPath = _location.getPath();
-
-	if (_path.find(locPath) == 0)	// In case location path is prefix of target
-		_path = temp + _path.substr(locPath.size());
-	else
-		_path = temp + _path;
 }
 
 request::~request() {}
@@ -56,55 +35,98 @@ request&	request::operator = (const request& other)
 		_location			= other._location;
 		_contentLength		= other._contentLength;
 		_currentFunction	= other._currentFunction;
+		_currentRead		= other._currentRead;
+		_code				= other._code;
 	}
 	return (*this);
 }
 
-static std::string getReasonPhrase(StatusCode code)
+template <typename EnumType>
+struct nodeHandler
 {
-	switch (code)
-	{
-		case OK:						return "OK";
-		case NO_CONTENT:				return "No Content";
-		case FOUND:						return "Found";
-		case BAD_REQUEST:				return "Bad Request";
-		case NOT_FOUND:					return "Not Found";
-		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
-		case FORBIDEN:					return "Forbiden";
-		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
-		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
-		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
-		case NOT_IMPLEMENTED: 			return "Not Implemented";
-		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
-		case LOL: 						return "No Fucking Idea Mate";
-		default:						return "Unknown";
-	}
-}
+	const EnumType name;
+	StatusCode (request::*handler)();
+};
 
-static StatusCode	myRead(int fd, std::string& _buffer)
+template<typename E>
+struct EnumTraits;
+
+template<>
+struct EnumTraits<Request>		{ static const int count = END_READ; };
+
+template<>
+struct EnumTraits<ReadRequest>	{ static const int count = END_REQUEST; };
+
+template<typename E>
+static StatusCode nextEnum(E& value)
 {
-	char buffer[BUFFER];
-
-	int len = read(fd, buffer, sizeof(buffer));
-
-	if (len < 0)
-		return READ_ERROR;
-
-	if (len == 0)
-		return CLIENT_DISCONECTED;
-
-	_buffer.append(buffer, len);
- 
+	value = static_cast<E>( static_cast<int>(value) + 1 );
+	
+	if (value == EnumTraits<E>::count)
+		return FINISHED;
 	return REPEAT;
 }
 
-StatusCode	request::readRequestLine()
+enum Cascade
 {
-	StatusCode code = myRead(_fd, _buffer);
+	CASCADE_OFF,
+	CASCADE_ON
+};
 
-	if (_buffer.length() > _location.getRequestLineSize())
-		return BAD_REQUEST;
+	template <typename EnumType, std::size_t N>
+	StatusCode executeNode(EnumType current, const nodeHandler<EnumType>(&nodes)[N], Cascade mode)
+	{
+		StatusCode code;
 
+		while (1) // non-blocking cascade
+		{
+			// Correct syntax for calling a member function pointer
+			code = (this->*nodes[current].handler)();
+
+			if (code != FINISHED)
+				break;
+
+			if (mode == CASCADE_OFF || nextEnum(current) == FINISHED)
+				return FINISHED;
+
+			current = nextEnum(current); // move to next enum state
+		}
+
+		return code;
+	}
+
+
+static void	epollMood(int fd, uint32_t mood)
+{
+	struct epoll_event ev;
+	ev.events = mood;
+	ev.data.fd = fd;
+	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
+}
+//
+//static std::string getReasonPhrase(StatusCode code)
+//{
+//	switch (code)
+//	{
+//		case OK:						return "OK";
+//		case NO_CONTENT:				return "No Content";
+//		case FOUND:						return "Found";
+//		case BAD_REQUEST:				return "Bad Request";
+//		case NOT_FOUND:					return "Not Found";
+//		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
+//		case FORBIDEN:					return "Forbiden";
+//		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
+//		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
+//		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
+//		case NOT_IMPLEMENTED: 			return "Not Implemented";
+//		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
+//		case LOL: 						return "No Fucking Idea Mate";
+//		default:						return "Unknown";
+//	}
+//}
+
+StatusCode	request::setUpRequestLine()
+{
 	if (_buffer.find("\n") != std::string::npos)
 	{
 		std::istringstream iss(_buffer);
@@ -115,17 +137,18 @@ StatusCode	request::readRequestLine()
 		size_t header_end = _buffer.find("\n");
 		_buffer.erase(0, header_end + 1);
 
-		StatusCode code = setUpHeader();
+		_location = _server->getLocation(_path);
 
-		if (code == END)
-			return REPEAT;
+		if (_path.find(_location.getPath()) == 0)	// In case location path is prefix of target
+			_path = _location.getRoot() + _path.substr(_location.getPath().size());
+		else
+			_path = _location.getRoot() + _path;
 
-		if (code > ERROR)
-			return code;
-
+		std::cout << "Request line finished" << std::endl;
+		
 		return FINISHED;
 	}
-	return code;
+	return REPEAT;
 }
 
 static void trim(std::string& s)
@@ -150,9 +173,8 @@ StatusCode request::setUpHeader()
 
 		if (line.empty())
 		{
-			if (!requestHandler::transform(_fd, this))
-				return METHOD_NOT_ALLOWED;
-			return END;
+			std::cout << "Header finished" << std::endl;
+			return FINISHED;
 		}
 
 		size_t colon = line.find(':');
@@ -168,93 +190,66 @@ StatusCode request::setUpHeader()
 	}
 }
 
-StatusCode	request::readHeader()
+StatusCode	request::setUpBody()
 {
-	StatusCode	code = myRead(_fd, _buffer);
-
-	if (_buffer.length() > _location.getHeaderSize())
-		return BAD_REQUEST;
-
-	if (code < ERROR)
+	if (_buffer.length() >= _contentLength)
 	{
-		code = setUpHeader();
+		std::cout << "Body finished" << std::endl;
+		_body = _buffer;
+		return FINISHED;
 	}
-
-	return code;
+	if (_buffer.length() >= _location.getBodySize())
+		return BAD_REQUEST;
+	return REPEAT;
 }
 
-StatusCode request::readBody()
+static StatusCode	myRead(int fd, std::string& _buffer)
+{
+	char buffer[BUFFER];
+
+	int len = read(fd, buffer, sizeof(buffer));
+
+	if (len < 0)
+		return READ_ERROR;
+
+	if (len == 0)
+		return CLIENT_DISCONECTED;
+
+	_buffer.append(buffer, len);
+ 
+	return REPEAT;
+}
+
+StatusCode request::readRequest()
 {
 	StatusCode code = myRead(_fd, _buffer);
 
-	if (_buffer.length() > _location.getBodySize())
-		return BAD_REQUEST;
+	std::cout << "Lets Read" << std::endl;
 
-	if (_buffer.length() > _contentLength)
-		return FINISHED;
+	if (code > BIG_ERRORS)
+		return code;
 
-	return code;
+	static nodeHandler<ReadRequest> nodes[END_READ] = {
+		{READ_REQUEST_LINE, &request::setUpRequestLine	},
+		{READ_HEADER,		&request::setUpHeader		},
+		{READ_BODY,			&request::setUpBody			}
+	};
+
+	return executeNode(_currentRead, nodes, CASCADE_ON);
 }
 
-
-StatusCode request::readChunked()
+StatusCode	request::setUpMethod()	
 {
-	StatusCode code = myRead(_fd, _buffer);
+	static nodeHandler<MethodSetUp> nodes[END_SET_UP] = {
+		{GET, 		&request::setUpGet	}
+		//{POST,		&request::setUpMethod	},
+		//{DELETE,	&request::response		}
+	};
 
-	if (_buffer.length() > _location.getBodySize())
-		return BAD_REQUEST;
-
-	if (_buffer.length() > _contentLength)
-	{
-		std::cout << "CHUNKED" << std::endl;
-		return FINISHED;
-	}
-
-	return code;
+	return executeNode(GET, nodes, CASCADE_OFF);
 }
 
-/*
-StatusCode request::readChunked()	// Not Finished
-{
-	StatusCode	code = readUntil(_fd, "\r\n");
-
-	if (code == FINISHED)
-	{
-		// Parse chunk size (in hex)
-		std::string size_str = _buffer.substr(0, line_end);
-		std::istringstream iss(size_str);
-		size_t chunk_size = 0;
-		iss >> std::hex >> chunk_size;
-		if (iss.fail())
-			throw httpResponse(BAD_REQUEST);
-
-		// Remove size line
-		_buffer.erase(0, line_end + 2);
-
-		// Check if we already have the full chunk
-		if (_buffer.size() < chunk_size + 2) // +2 for trailing \r\n
-			return; // incomplete chunk, wait for next EPOLLIN
-
-		// Append chunk to body
-		_body.append(_buffer.substr(0, chunk_size));
-		_buffer.erase(0, chunk_size + 2);
-
-		// End of transfer
-		if (chunk_size == 0)
-		{
-			_body = _buffer;
-			return FINISHED;
-		}
-
-	}
-	return REPEAT; // need more data
-}
-*/
-
-StatusCode	request::setUpMethod()		{ return (FINISHED);	}	// Methods must fill it
-StatusCode	request::processMethod()	{ return (BIG_ERRORS);	}	// Methods must fill it
-
-void sendChunk(int fd, const std::string &data)
+static void sendChunk(int fd, const std::string &data)
 {
 	std::ostringstream chunk;
 	chunk << std::hex << data.size() << "\r\n";
@@ -264,125 +259,126 @@ void sendChunk(int fd, const std::string &data)
 
 StatusCode	request::readAndSend()
 {
-	char buf[1024];
-	ssize_t n = read(_infile, buf, sizeof(buf));
-
-	if (n > 0) 
-		sendChunk(_fd, std::string(buf, n));
-
-	if (n == 0)
+	_buffer.clear();
+	StatusCode	code = myRead(_infile, _buffer);
+	
+	if (code == CLIENT_DISCONECTED)
 	{
 		write(_fd, "0\r\n\r\n", 5);
-		end();
-		return FINISHED;
+		return END;
 	}
 
-	return REPEAT;
+	if (code > BIG_ERRORS)
+		sendChunk(_fd, _buffer);
+	return code;
 }
 
-void	request::nextFunction()
+StatusCode	request::response()
 {
-	_currentFunction = static_cast<Request>(_currentFunction + 1);
+	static nodeHandler<HandleResponse> nodes[END_RESPONSE] = {
+		{READ_AND_SEND, &request::readAndSend	}
+		//{AUTOINDEX,		&request::setUpHeader		},
+		//{CGI,			&request::setUpBody			}
+	};
 
-	if (_currentFunction == METHOD_SET_UP)
-	{ 
-		struct epoll_event ev;
-		ev.events = EPOLLOUT;
-		ev.data.fd = _fd;
-		epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);	// Telling epoll we are changing the flow of this socket
-	}
+	return executeNode(READ_AND_SEND, nodes, CASCADE_OFF);
 }
 
-void	request::response(StatusCode code)
+//StatusCode	request::response()
+//{
+//	if (_code >= BIG_ERRORS)
+//		return std::cout << "BIG ERROR" << std::endl, END;
+//	
+//	epollMood(_fd, EPOLLOUT);
+//
+//	std::stringstream response;
+//			
+//	response	<< _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n"
+//				<< "Content-Type: text/html" << "\r\n";
+//	
+//	if (_protocol == "HTTP/1.1" || (_headers.find("Connection") == _headers.end() && _headers.find("Connection")->second == "keep-alive"))
+//		response << "Connection: keep-alive" << "\r\n";
+//
+//	if (_code == OK)
+//	{
+//		response << "Content-Length: " << _body.length() << "\r\n" << "\r\n";
+//		response << _body;
+//	}
+//	else
+//	{
+//		std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(_code);
+//		if (it != _location.getErrorPages().end())
+//		{
+//			_infile = open(it->second.c_str(), O_RDONLY);
+//			if (_infile < 0)
+//			{
+//				perror("open");
+//				return END;
+//			}
+//			response << "Transfer-Encoding: chunked\r\n" << "\r\n";
+//			_currentFunction = READ_AND_SEND;
+//			write(_fd, response.str().c_str(), response.str().size());
+//			return REPEAT;
+//		}
+//		response << "Content-Length: " << getReasonPhrase(_code).length() + 4 << "\r\n" << "\r\n";
+//		response << _code << " " << getReasonPhrase(_code);
+//	}
+//	write(_fd, response.str().c_str(), response.str().size());
+//	return END;
+//}
+
+void	request::end()
 {
-	if (code >= BIG_ERRORS)
-		return std::cout << "BIG ERROR" << std::endl, (void)end();
-	
-	struct epoll_event ev;
-	ev.events = EPOLLOUT;
-	ev.data.fd = _fd;
-	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, _fd, &ev);
-	_buffer.clear();
-
-	std::stringstream response;
-			
-	response << "HTTP/1.1 " << code << " " << getReasonPhrase(code).c_str() << "\r\n" << "Content-Type: text/html\r\n";
-
-	if (code == OK && _body.length() > 0)
+	if (_protocol == "HTTP/1.1" || _headers.find("Connection") != _headers.end())
 	{
-		response << "Content-Length: " << _body.length() << "\r\n" << "\r\n";
-		response << _body;
-		write(_fd, response.str().c_str(), response.str().size());
-		end();
-		return ;
-	}
-	if (code != OK)
-	{
-		std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(code);
-		if (it == _location.getErrorPages().end())
-		{
-			response << "Content-Length: " << getReasonPhrase(code).length() + 4 << "\r\n" << "\r\n";
-			response << code << " " << getReasonPhrase(code);
-			write(_fd, response.str().c_str(), response.str().size());
-			end();
-			return ;
-		}
-		_infile = open(it->second.c_str(), O_RDONLY);
-		if (_infile < 0)
-		{
-			perror("open");
-			end();
-			return ;
-		}
-	}
-	response << "Transfer-Encoding: chunked\r\n" << "\r\n";
-	_currentFunction = READ_AND_SEND;
-	write(_fd, response.str().c_str(), response.str().size());
-}
+		_method.clear();
+		_buffer.clear();
+		_path.clear();
+		_protocol.clear();
+		_headers.clear();
+		_contentType.clear();
+		_contentLength = 0;
+		_query.clear();
 
-StatusCode	request::end()
-{
-	epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
-	requestHandler::delReq(_fd);
-	close(_fd);
+		//_location = ;
+		_currentFunction = READ_REQUEST;
+		_currentRead = READ_REQUEST_LINE;
+		_code = OK;
+	}
+	else
+	{
+		epollMood(_fd, EPOLL_CTL_DEL);
+		//epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
+		close(_fd);
+		requestHandler::delReq(_fd);
+	}
 	if (_infile > 0)
 		close(_infile);
-	return (FINISHED);
 }
-
-struct nodeHandler
-{
-	const Request name;
-	StatusCode (request::*handler)();
-};
 
 void request::exec()
 {
-	static nodeHandler nodes[END_REQUEST] =
-	{
-		{READ_REQUEST_LINE, &request::readRequestLine	},
-		{READ_HEADER,		&request::readHeader		},
-		{READ_BODY,			&request::readBody			},
-		{READ_CHUNKED,		&request::readChunked		},
-		{METHOD_SET_UP,		&request::setUpMethod		},
-		{METHOD_PROCESS,	&request::processMethod		},
-		{READ_AND_SEND,		&request::readAndSend		}
+	static nodeHandler<Request> nodes[END_REQUEST] = {
+		{READ_REQUEST, 		&request::readRequest	},
+		{METHOD_SET_UP,		&request::setUpMethod	},
+		{HANDLE_RESPONSE,	&request::response		}
 	};
 
-	StatusCode code = (this->*nodes[_currentFunction].handler)();	// Exec current function
+	_code = executeNode(_currentFunction, nodes, CASCADE_ON);
 
-	switch (code)
+	if (_code > RESPONSE)
 	{
-		case	END:
-		case	REPEAT:						break;
-		case	FINISHED:	nextFunction();	break;
-		default: 			response(code);	break;
+		_code = response();
+		_currentFunction = HANDLE_RESPONSE;
 	}
+	
+	if (_code == END)
+		end();
 }
 
-const std::string& request::getContentType()	const { return _contentType; }
-const std::string& request::getBody()			const { return _body; }
-const std::string& request::getMethod()			const { return _method; }
+const std::string& request::getContentType()	const { return _contentType;	}
+const std::string& request::getBody()			const { return _body;			}
+const std::string& request::getMethod()			const { return _method;			}
 
 //	if (len == 0) std::cout << "Client Disconnnected" << std::endl;
 //	if (len < 0) std::cout << "Read Error" << std::endl;

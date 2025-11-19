@@ -9,10 +9,9 @@ class requestHandler
 
 		requestHandler();
 		~requestHandler();
-
+		
 	public:
-		static void	delReq(int fd);
-		static void	execReq(int fd);
-		static bool	transform(int fd, request* baby);
-		static void	addReq(int fd, serverConfig& server);
+		static void			addReq(int fd, serverConfig& server);
+		static void			execReq(int fd);
+		static void			delReq(int fd);
 };
