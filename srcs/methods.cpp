@@ -53,7 +53,7 @@ static StatusCode saveFile(const std::string &part, location *loc)
 {
 	size_t sep = part.find("\r\n\r\n");
 	if (sep == std::string::npos)
-		return	BAD_REQUEST;
+		return BAD_REQUEST;
 	std::string headers = part.substr(0, sep);
 	std::string content = part.substr(sep + 4);
 
@@ -67,17 +67,25 @@ static StatusCode saveFile(const std::string &part, location *loc)
 	{
 		size_t q1 = headers.find("\"", fnPos);
 		size_t q2 = headers.find("\"", q1 + 1);
-		std::string filename = loc->getRoot() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+		mkdir((loc->getRoot() + "/" + loc->getUploadStore()).c_str(), 0755);
+		std::string filename = loc->getRoot() + "/" + loc->getUploadStore() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
 
 		std::ofstream out(filename.c_str(), std::ios::binary);
+
 		if (out)
 		{
 			out.write(content.data(), content.size());
 			out.close();
 			std::cout << "Saved file: " << filename << std::endl;
+			return FINISHED;
+		}
+		if (!out.is_open())
+		{
+			std::cerr << "Failed to open: " << filename << std::endl;
+			return INTERNAL_SERVER_ERROR;
 		}
 	}
-	return FINISHED;
+	return BAD_REQUEST;
 }
 
 static StatusCode	saveForm(const std::string &part, location *loc)
@@ -113,9 +121,9 @@ myGet::~myGet() {}
 
 StatusCode	myGet::setUpMethod()
 {
-	std::ifstream file;
+	std::ifstream	file;
 
-	//setQuery();	// Strip the query from the path to separate them
+	setQuery();	// Strip the query from the path to separate them
 
 	if (is_directory(_path))
 	{
@@ -133,14 +141,9 @@ StatusCode	myGet::setUpMethod()
 			generateAutoIndex();
 	}
 
-	//if (isCgiScript(_path) != "")
-	//{
-	//	cgi("/usr/bin/php-cgi");		// adjust interpreter
-	//	_contentType = "text/html";		// or parse CGI headers if needed
-	//}
-
-	//if (isCgiScript(_path) != "")
-	//	return(cgi(isCgiScript(_path)), returnthis));
+	// See if it's a cgi file and assign the appropiate cgi and execute
+	if (isCgiScript(_path) > ERROR) return BAD_REQUEST;
+	if (_cgiCommand != "") return cgiSetup();
 
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
@@ -151,6 +154,7 @@ StatusCode	myGet::setUpMethod()
 
 StatusCode myGet::processMethod()
 {
+	if (_cgiCommand != "") return handleCgi();
 	return readAndSend();
 }
 
@@ -197,14 +201,15 @@ ContentType	contentType(const std::string& ctype)
 
 StatusCode	myPost::setUpMethod()
 {
-	//if (isCgiScript(_path) != "")
-	//	return (cgi(isCgiScript(_path)), FINISHED);
-	if (_headers.find("content-type") == _headers.end())
+	if (_headers.find("Content-Type") == _headers.end())
 		return BAD_REQUEST;
 
+	// See if it's a cgi file and assign the appropiate cgi and execute
+	if (isCgiScript(_path) > ERROR) return BAD_REQUEST;
+	if (_cgiCommand != "") return cgiSetup();
 	StatusCode code;
 
-	switch (contentType(_headers["content-type"]))
+	switch (contentType(_headers["Content-Type"]))
 	{
 		case CT_MULTIPART:	code = handleMultipart();			break;
 
@@ -223,13 +228,13 @@ StatusCode	myPost::setUpMethod()
 
 StatusCode myPost::processMethod()
 {
-	//CGI HEREEEEE
+	if (_cgiCommand != "") return handleCgi();
 	return FINISHED;
 }
 
 StatusCode myPost::handleMultipart()
 {
-	std::string contentType = _headers["content-type"];
+	std::string contentType = _headers["Content-Type"];
 	size_t p = contentType.find("boundary=");
 	if (p == std::string::npos)
 		return BAD_REQUEST;
@@ -262,7 +267,6 @@ StatusCode myPost::handleMultipart()
 
 		if (last)
 			break;
-
 		std::string part = _body.substr(start, next - start);
 		if (part.find("filename=") != std::string::npos)
 			saveFile(part, &_location);

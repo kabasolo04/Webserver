@@ -1,48 +1,43 @@
 #include "WebServer.hpp"
 
-std::string request::isCgiScript(std::string filename)
+StatusCode request::isCgiScript(std::string filename)
 {
 	size_t pos = filename.find_last_of(".");
+
 	if (pos == std::string::npos)
-		throw httpResponse(BAD_REQUEST);
+		return BAD_REQUEST;
 	std::string extension = filename.substr(pos + 1);
 	std::map<std::string, std::string> ext = _location.getCgiExtensions();
 	std::map<std::string, std::string>::iterator it = ext.find(extension);
     if (it == ext.end())
-        return "";
-    return it->second;
-/* 	if (extension == "php")
-		return "/usr/bin/php-cgi";
-	return ""; */
+        _cgiCommand = "";
+	else
+    	_cgiCommand = it->second;
+	return OK;
 }
 
-static std::string	getAbsolutePath(const std::string &path)
+static bool	getAbsolutePath(std::string &path)
 {
 	char absPath[PATH_MAX];
 	if (realpath(path.c_str(), absPath) == NULL)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
-	return std::string(absPath);
+		return false;
+	path = std::string(absPath);
+	return true;
 }
 
 
 std::vector<char *> buildArgv(const std::string &command, const std::string &path)
 {
 	std::vector<char *> argv;
+	argv.push_back(const_cast<char *>(command.c_str()));
 	if (command.find("php-cgi") != std::string::npos)
-	{
-		argv.push_back(const_cast<char *>(command.c_str()));
 		argv.push_back(const_cast<char *>("-f"));
-		argv.push_back(const_cast<char *>(path.c_str()));
-	}
 	else if (command.find("python") != std::string::npos)
 	{
-		argv.push_back(const_cast<char *>(command.c_str()));
 		argv.push_back(const_cast<char *>("-W"));
 		argv.push_back(const_cast<char *>("ignore"));
-		argv.push_back(const_cast<char *>(path.c_str()));
 	}
-	else
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+	argv.push_back(const_cast<char *>(path.c_str()));
 	argv.push_back(NULL);
 	return argv;
 }
@@ -72,7 +67,7 @@ std::vector<std::string> request::build_env()
 	return (env_str);
 }
 
-void request::execChild(const std::string &command, int outPipe[2], int inPipe[2])
+void request::execChild(int outPipe[2], int inPipe[2])
 {
 	close(outPipe[0]);
 	dup2(outPipe[1], STDOUT_FILENO);
@@ -85,7 +80,7 @@ void request::execChild(const std::string &command, int outPipe[2], int inPipe[2
 		close(inPipe[0]);
 	}
 
-	std::vector<char *> argv = buildArgv(command, _path);
+	std::vector<char *> argv = buildArgv(_cgiCommand, _path);
 	std::vector<std::string> env_str = build_env();
 	std::vector<char *> envp;
 	for (size_t i = 0; i < env_str.size(); ++i)
@@ -97,108 +92,67 @@ void request::execChild(const std::string &command, int outPipe[2], int inPipe[2
 	chdir(dir.c_str());
 
 	execve(argv[0], argv.data(), envp.data());
-	std::cerr << "execve failed" << std::endl;
+	std::cerr << "execve failed: " << strerror(errno) << " (errno = " << errno << ")" << std::endl;
 	exit(1);
 }
 
-/* Reads from child and makes shure it does not hang in case of an infinite loop */
-std::string readChild(pid_t child, int outPipe[2])
+static void sendChunk(int fd, const std::string &data)
 {
-	const int		CGI_TIMEOUT = 3; // seconds
-	const int		CHECK_INTERVAL = 1; // seconds
-	time_t			start = time(NULL);
-	char			buf[BUFFER];
-	std::string		response;
-	fd_set 			readfds;
-	struct timeval	tv;
-
-	while (true)
-	{
-		// Check timeout before waiting
-		if (difftime(time(NULL), start) > CGI_TIMEOUT)
-		{
-			kill(child, SIGKILL);
-			waitpid(child, NULL, 0);
-			throw httpResponse(GATEWAY_TIMEOUT);
-		}
-
-		FD_ZERO(&readfds);
-		FD_SET(outPipe[0], &readfds);
-		tv.tv_sec = CHECK_INTERVAL;
-		tv.tv_usec = 0;
-
-		int ready = select(outPipe[0] + 1, &readfds, NULL, NULL, &tv);
-		if (ready < 0)
-		{
-			if (errno == EINTR)
-				continue; // signal interruption, just retry
-			throw httpResponse(INTERNAL_SERVER_ERROR);
-
-		}
-		if (ready == 0)
-			continue; // nothing to read yet, recheck timeout
-
-		ssize_t n = read(outPipe[0], buf, sizeof(buf));
-		if (n == 0)
-			break; // EOF, child done
-		if (n < 0)
-		{
-			if (errno != EINTR)
-				throw httpResponse(INTERNAL_SERVER_ERROR);
-			continue;
-		}
-
-		response.append(buf, n);
-	}
-	close(outPipe[0]);
-	return response;
+	std::ostringstream chunk;
+	chunk << std::hex << data.size() << "\r\n";
+	chunk << data << "\r\n";
+	write(fd, chunk.str().c_str(), chunk.str().size());
 }
 
-void request::handleParent(pid_t child, int outPipe[2], int inPipe[2])
+StatusCode request::handleCgi()
 {
-	close(outPipe[1]);
-	if (_method == "POST")
-	{
-		close(inPipe[0]);
-		write(inPipe[1], _body.c_str(), _body.size());
-		close(inPipe[1]);
-	}
-	std::string response = readChild(child, outPipe);
+	StatusCode code = myRead(_infile);
 
+	if (_cgiHeaderCheck == false)
+	{
+		//Strip the headers from the first reads
+		size_t end = _buffer.find("\r\n\r\n");
+		if (end == std::string::npos)
+			return REPEAT;
+		_buffer.erase(0, end + 4);
+
+		//Tell browser that it is a chunked response
+		std::ostringstream resp;
+		resp << "HTTP/1.1 200 OK\r\n";
+		resp << "Transfer-Encoding: chunked\r\n";
+		resp << "Content-Type: " << _contentType << "\r\n";
+		resp << "\r\n";
+		write(_fd, resp.str().c_str(), resp.str().size());
+		_cgiHeaderCheck = true;
+	}
+
+	if (code == REPEAT)
+	{
+		sendChunk(_fd, _buffer);
+		_buffer.clear();
+	}
+
+	if (code != CLIENT_DISCONECTED)
+		return REPEAT;
+
+	write(_fd, "0\r\n\r\n", 5);
+	// 2. IMPORTANT: Do NOT kill the child.
+	// Just wait for it normally.
 	int status = 0;
-	waitpid(child, &status, 0);
-	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
-	// Split headers and body
-	size_t headerEnd = response.find("\r\n\r\n");
-	std::string cgiHeaders;
-	std::string cgiBody;
+	waitpid(_cgiChild, &status, 0);
 
-	if (headerEnd != std::string::npos)
-	{
-		cgiHeaders = response.substr(0, headerEnd);
-		cgiBody = response.substr(headerEnd + 4);
-	}
-	else
-		cgiBody = response;
-	size_t pos = cgiHeaders.find("content-type:");
-	if (pos != std::string::npos)
-	{
-		size_t end = cgiHeaders.find("\r\n", pos);
-		_contentType = cgiHeaders.substr(pos + 13, end - pos - 13);
-	}
-	else
-		_contentType = "text/html";
-	_body = cgiBody;
+	// 3. If CGI crashed or returned non-zero → error
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		return INTERNAL_SERVER_ERROR;
+
+	return end();
 }
 
-void request::cgi(std::string command)
+StatusCode request::cgiSetup()
 {
-	if (command == "")
-		throw httpResponse(FORBIDEN);
 	int outPipe[2];
 	if (pipe(outPipe) == -1)
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (INTERNAL_SERVER_ERROR);
 
 	int inPipe[2];
 	if (_method == "POST" && pipe(inPipe) == -1)
@@ -206,11 +160,11 @@ void request::cgi(std::string command)
 		close(outPipe[0]);
 		close(outPipe[1]);
 		std::cerr << "CGI post inpipe failed" << std::endl;
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (INTERNAL_SERVER_ERROR);
 	}
 
-	pid_t child = fork();
-	if (child == -1)
+	_cgiChild = fork();
+	if (_cgiChild == -1)
 	{
 		close(outPipe[0]);
 		close(outPipe[1]);
@@ -220,11 +174,22 @@ void request::cgi(std::string command)
 			close(inPipe[1]);
 		}
 		std::cerr << "CGI fork failed" << std::endl;
-		throw httpResponse(INTERNAL_SERVER_ERROR);
+		return (INTERNAL_SERVER_ERROR);
 	}
-	_path = getAbsolutePath(_path);
-	if (child == 0)
-		execChild(command, outPipe, inPipe);
-	else
-		handleParent(child, outPipe, inPipe);
+
+	if (!getAbsolutePath(_path)) return INTERNAL_SERVER_ERROR;
+
+	if (_cgiChild == 0) execChild(outPipe, inPipe);
+
+	close(outPipe[1]);
+	if (_method == "POST")
+	{
+		close(inPipe[0]);
+		write(inPipe[1], _body.c_str(), _body.size());
+		close(inPipe[1]);
+	}
+	_infile = outPipe[0];
+	_cgiHeaderCheck = false;
+	_buffer.clear();
+	return FINISHED;
 }

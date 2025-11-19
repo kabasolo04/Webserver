@@ -4,10 +4,11 @@ request::request(int fd, serverConfig& server):
 	_server(&server),
 	_fd(fd),
 	_body(""),
+	_cgiChild(0),
 	_location(),
 	_contentLength(0),
 	_currentFunction(READ_REQUEST_LINE)
-	{}
+	 {}
 
 request::request(const request& other): _location(other._location)
 {
@@ -16,8 +17,9 @@ request::request(const request& other): _location(other._location)
 	_currentFunction = READ_BODY;
 
 	_contentLength = 0;
-	std::istringstream iss(_headers["content-length"]); 
+	std::istringstream iss(_headers["Content-Length"]); 
 	iss >> _contentLength;
+	_currentFunction = READ_BODY;
 
 	if (_contentLength <= 0)
 	{
@@ -25,9 +27,7 @@ request::request(const request& other): _location(other._location)
 		if (_headers.find("transfer-encoding") == _headers.end() || _headers["transfer-encoding"] != "chunked")
 			nextFunction();
 	}
-
 	_location = _server->getLocation(_path);
-	//std::cout << "PATH: " << _path << std::endl;
 
 	std::string temp = _location.getRoot();
 	std::string locPath = _location.getPath();
@@ -56,6 +56,7 @@ request&	request::operator = (const request& other)
 		_location			= other._location;
 		_contentLength		= other._contentLength;
 		_currentFunction	= other._currentFunction;
+		_cgiChild			= other._cgiChild;
 	}
 	return (*this);
 }
@@ -81,7 +82,7 @@ static std::string getReasonPhrase(StatusCode code)
 	}
 }
 
-static StatusCode	myRead(int fd, std::string& _buffer)
+StatusCode	request::myRead(int fd)
 {
 	char buffer[BUFFER];
 
@@ -92,7 +93,6 @@ static StatusCode	myRead(int fd, std::string& _buffer)
 
 	if (len == 0)
 		return CLIENT_DISCONECTED;
-
 	_buffer.append(buffer, len);
  
 	return REPEAT;
@@ -100,7 +100,7 @@ static StatusCode	myRead(int fd, std::string& _buffer)
 
 StatusCode	request::readRequestLine()
 {
-	StatusCode code = myRead(_fd, _buffer);
+	StatusCode code = myRead(_fd);
 
 	if (_buffer.length() > _location.getRequestLineSize())
 		return BAD_REQUEST;
@@ -152,6 +152,7 @@ StatusCode request::setUpHeader()
 		{
 			if (!requestHandler::transform(_fd, this))
 				return METHOD_NOT_ALLOWED;
+			
 			return END;
 		}
 
@@ -170,7 +171,7 @@ StatusCode request::setUpHeader()
 
 StatusCode	request::readHeader()
 {
-	StatusCode	code = myRead(_fd, _buffer);
+	StatusCode	code = myRead(_fd);
 
 	if (_buffer.length() > _location.getHeaderSize())
 		return BAD_REQUEST;
@@ -183,15 +184,29 @@ StatusCode	request::readHeader()
 	return code;
 }
 
+void	request::printHeaders()
+{
+	std::cout << "===HEADERS===" << std::endl;
+	std::cout << "Path: " << _path << std::endl;
+	std::cout << "Protocol: " << _protocol << std::endl;
+	std::map<std::string, std::string>::iterator it;
+	for (it = _headers.begin(); it != _headers.end(); ++it)
+	std::cout << it->first << ": " << it->second << std::endl;
+	std::cout << "=============" << std::endl;
+}
+
 StatusCode request::readBody()
 {
-	StatusCode code = myRead(_fd, _buffer);
-
+	StatusCode code = myRead(_fd);
 	if (_buffer.length() > _location.getBodySize())
 		return BAD_REQUEST;
+	//std::cout << _buffer.length() << " : " << _contentLength  << std::endl;
 
-	if (_buffer.length() > _contentLength)
-		return FINISHED;
+	if (_buffer.length() >= _contentLength)
+	{
+		_body = _buffer;
+		return nextFunction(), FINISHED;
+	}
 
 	return code;
 }
@@ -199,7 +214,7 @@ StatusCode request::readBody()
 
 StatusCode request::readChunked()
 {
-	StatusCode code = myRead(_fd, _buffer);
+	StatusCode code = myRead(_fd);
 
 	if (_buffer.length() > _location.getBodySize())
 		return BAD_REQUEST;
@@ -266,8 +281,7 @@ StatusCode	request::readAndSend()
 {
 	char buf[1024];
 	ssize_t n = read(_infile, buf, sizeof(buf));
-
-	if (n > 0) 
+	if (n > 0)
 		sendChunk(_fd, std::string(buf, n));
 
 	if (n == 0)
@@ -345,6 +359,13 @@ StatusCode	request::end()
 	epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
 	requestHandler::delReq(_fd);
 	close(_fd);
+	// If there is a running CGI child, terminate it before closing the pipe
+	if (_cgiChild > 0)
+	{
+		kill(_cgiChild, SIGKILL);
+		waitpid(_cgiChild, NULL, 0);
+		_cgiChild = 0;
+	}
 	if (_infile > 0)
 		close(_infile);
 	return (FINISHED);

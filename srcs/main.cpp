@@ -60,7 +60,6 @@ int main(int argc, char **argv)
 	while (1)
 	{
 		int n = epoll_wait(conf::epfd(), events, MAX_EVENTS, -1);
-
 		if (n < 0)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
 
