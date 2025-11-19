@@ -107,13 +107,43 @@ static bool	is_file(const std::string &path)
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
+static std::string getReasonPhrase(StatusCode code)
+{
+	switch (code)
+	{
+		case OK:						return "OK";
+		case NO_CONTENT:				return "No Content";
+		case FOUND:						return "Found";
+		case BAD_REQUEST:				return "Bad Request";
+		case NOT_FOUND:					return "Not Found";
+		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
+		case FORBIDEN:					return "Forbiden";
+		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
+		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
+		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
+		case NOT_IMPLEMENTED: 			return "Not Implemented";
+		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
+		case LOL: 						return "No Fucking Idea Mate";
+		default:						return "Unknown";
+	}
+}
+
 void	generateAutoIndex()
 {
 	std::cout << "AUTOINDEEEX" << std::endl;
 }
 
+static void	epollMood(int fd, uint32_t mood)
+{
+	struct epoll_event ev;
+	ev.events = mood;
+	ev.data.fd = fd;
+	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
+}
+
 StatusCode	request::setUpGet()
 {
+	std::cout << "GET" << std::endl;
 	std::ifstream file;
 
 	//setQuery();	// Strip the query from the path to separate them
@@ -125,6 +155,8 @@ StatusCode	request::setUpGet()
 		else
 			generateAutoIndex();
 	}
+
+	std::cout << "PATH: " + _path << std::endl;
 
 	if (!is_file(_path))
 	{
@@ -143,11 +175,23 @@ StatusCode	request::setUpGet()
 	//if (isCgiScript(_path) != "")
 	//	return(cgi(isCgiScript(_path)), returnthis));
 
+
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
 		return NOT_FOUND;
 
-	return OK;
+	std::cout << "FileFound" << std::endl;
+
+	epollMood(_fd, EPOLLOUT);
+
+	std::stringstream response;
+	response	<< _protocol << " " << OK << " " << getReasonPhrase(OK).c_str() << "\r\n"
+				<< "Content-Type: text/html" << "\r\n"
+				<< "Transfer-Encoding: chunked\r\n" << "\r\n";
+	
+	write(_fd, response.str().c_str(), response.str().size());
+
+	return FINISHED;
 }
 
 //void	myGet::setQuery()

@@ -4,46 +4,48 @@
 
 #define BUFFER 500
 
-enum nodes
+#define CASCADE_OFF	0
+#define CASCADE_ON	1
+
+enum Nodes
 {
-	FIRST,
-	SECOND,
-	THIRD,
-	FOURTH,
-	FIVETH
+	ONE,
+	TWO,
+	THREE,
+	FOUR
 };
 
-enum ReadRequest
-{
-	READ_REQUEST_LINE,
-	READ_HEADER,
-	READ_BODY,
-	END_READ
-};
-
-enum MethodSetUp
-{
-	GET,
-	POST,
-	DELETE,
-	END_SET_UP
-};
-
-enum HandleResponse
-{
-	READ_AND_SEND,
-	AUTOINDEX,
-	CGI,
-	END_RESPONSE
-};
-
-enum Request
-{
-	READ_REQUEST,
-	METHOD_SET_UP,
-	HANDLE_RESPONSE,
-	END_REQUEST
-};
+//enum ReadRequest
+//{
+//	READ_REQUEST_LINE,
+//	READ_HEADER,
+//	READ_BODY,
+//	END_READ
+//};
+//
+//enum MethodSetUp
+//{
+//	GET,
+//	POST,
+//	DELETE,
+//	END_SET_UP
+//};
+//
+//enum HandleResponse
+//{
+//	READ_AND_SEND,
+//	AUTOINDEX,
+//	CGI,
+//	END_RESPONSE
+//};
+//
+//enum Request
+//{
+//	READ_REQUEST,
+//	METHOD_SET_UP,
+//	HANDLE_RESPONSE,
+//	END_REQUEST
+//};
 
 enum StatusCode
 {
@@ -74,6 +76,15 @@ enum StatusCode
 	CLIENT_DISCONECTED,
 };
 
+class request;
+
+struct nodeHandler
+{
+	const Nodes name;
+	StatusCode (request::*handler)();
+};
+
+
 class request
 {
 	private:
@@ -93,12 +104,16 @@ class request
 		location							_location;
 		size_t								_contentLength;
 	
-		Request								_currentFunction;
-		ReadRequest							_currentRead;
+		Nodes								_currentFunction;
+		Nodes								_currentRead;
+		Nodes								_currentSetUp;
+		Nodes								_currentResponse;
 		StatusCode							_code;
 		
 		//void		printHeaders();
 		
+		StatusCode	execNode(Nodes& current, const nodeHandler nodes[], int mode);
+
 		StatusCode	setUpRequestLine();
 		StatusCode	setUpHeader();
 		StatusCode	setUpBody();
@@ -122,6 +137,7 @@ class request
 		//std::vector<std::string>	build_env();
 
 		void		end();
+		StatusCode	endNode();
 	
 		request(const request& other);
 		request& operator = (const request& other);

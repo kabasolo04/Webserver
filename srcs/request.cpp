@@ -6,8 +6,10 @@ request::request(int fd, serverConfig& server):
 	_body(""),
 	_location(),
 	_contentLength(0),
-	_currentFunction(READ_REQUEST),
-	_currentRead(READ_REQUEST_LINE),
+	_currentFunction(ONE),
+	_currentRead(ONE),
+	_currentSetUp(ONE),
+	_currentResponse(ONE),
 	_code(OK)
 	{}
 
@@ -41,60 +43,29 @@ request&	request::operator = (const request& other)
 	return (*this);
 }
 
-template <typename EnumType>
-struct nodeHandler
+StatusCode	request::endNode()	{ return END; }
+
+StatusCode request::execNode(Nodes& current, const nodeHandler nodes[], int mode)
 {
-	const EnumType name;
-	StatusCode (request::*handler)();
-};
+	StatusCode code;
 
-template<typename E>
-struct EnumTraits;
-
-template<>
-struct EnumTraits<Request>		{ static const int count = END_READ; };
-
-template<>
-struct EnumTraits<ReadRequest>	{ static const int count = END_REQUEST; };
-
-template<typename E>
-static StatusCode nextEnum(E& value)
-{
-	value = static_cast<E>( static_cast<int>(value) + 1 );
-	
-	if (value == EnumTraits<E>::count)
-		return FINISHED;
-	return REPEAT;
-}
-
-enum Cascade
-{
-	CASCADE_OFF,
-	CASCADE_ON
-};
-
-	template <typename EnumType, std::size_t N>
-	StatusCode executeNode(EnumType current, const nodeHandler<EnumType>(&nodes)[N], Cascade mode)
+	while (1)	// Gotta call the timeout in the future
 	{
-		StatusCode code;
+		code = (this->*(nodes[current].handler))();
 
-		while (1) // non-blocking cascade
-		{
-			// Correct syntax for calling a member function pointer
-			code = (this->*nodes[current].handler)();
+		if (code == END)
+			return FINISHED;
 
-			if (code != FINISHED)
-				break;
+		if (code != FINISHED || mode == CASCADE_OFF)
+			break;
 
-			if (mode == CASCADE_OFF || nextEnum(current) == FINISHED)
-				return FINISHED;
+		std::cout << "NEXT ENUM" << std::endl;
 
-			current = nextEnum(current); // move to next enum state
-		}
-
-		return code;
+		current = static_cast<Nodes>(static_cast<int>(current) + 1);
 	}
 
+	return code;
+}
 
 static void	epollMood(int fd, uint32_t mood)
 {
@@ -103,39 +74,33 @@ static void	epollMood(int fd, uint32_t mood)
 	ev.data.fd = fd;
 	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
 }
-//
-//static std::string getReasonPhrase(StatusCode code)
-//{
-//	switch (code)
-//	{
-//		case OK:						return "OK";
-//		case NO_CONTENT:				return "No Content";
-//		case FOUND:						return "Found";
-//		case BAD_REQUEST:				return "Bad Request";
-//		case NOT_FOUND:					return "Not Found";
-//		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
-//		case FORBIDEN:					return "Forbiden";
-//		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
-//		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
-//		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
-//		case NOT_IMPLEMENTED: 			return "Not Implemented";
-//		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
-//		case LOL: 						return "No Fucking Idea Mate";
-//		default:						return "Unknown";
-//	}
-//}
 
 StatusCode	request::setUpRequestLine()
 {
-	if (_buffer.find("\n") != std::string::npos)
+	size_t header_end = _buffer.find("\n");
+
+	if (header_end != std::string::npos)
 	{
 		std::istringstream iss(_buffer);
+
+		std::cout << "--------------------------" << std::endl;
+		std::cout << _buffer << std::endl;
 
 		if (!(iss >> _method >> _path >> _protocol))
 			return BAD_REQUEST;
 
-		size_t header_end = _buffer.find("\n");
 		_buffer.erase(0, header_end + 1);
+
+		std::cout << _method + " - ";
+
+		std::cout << _path + " - ";
+
+		std::cout << _protocol << std::endl;
+
+		std::cout << "--------------------------" << std::endl;
+		std::cout << _buffer << std::endl;
+		std::cout << "--------------------------" << std::endl;
+
 
 		_location = _server->getLocation(_path);
 
@@ -143,6 +108,8 @@ StatusCode	request::setUpRequestLine()
 			_path = _location.getRoot() + _path.substr(_location.getPath().size());
 		else
 			_path = _location.getRoot() + _path;
+
+		std::cout << "PATH: " + _path << std::endl;
 
 		std::cout << "Request line finished" << std::endl;
 		
@@ -229,28 +196,35 @@ StatusCode request::readRequest()
 	if (code > BIG_ERRORS)
 		return code;
 
-	static nodeHandler<ReadRequest> nodes[END_READ] = {
-		{READ_REQUEST_LINE, &request::setUpRequestLine	},
-		{READ_HEADER,		&request::setUpHeader		},
-		{READ_BODY,			&request::setUpBody			}
+	static nodeHandler nodes[] = {
+		{ONE,	&request::setUpRequestLine	},
+		{TWO,	&request::setUpHeader		},
+		{THREE,	&request::setUpBody			},
+		{FOUR,	&request::endNode			}
 	};
 
-	return executeNode(_currentRead, nodes, CASCADE_ON);
+	return execNode(_currentRead, nodes, CASCADE_ON);
 }
 
 StatusCode	request::setUpMethod()	
 {
-	static nodeHandler<MethodSetUp> nodes[END_SET_UP] = {
-		{GET, 		&request::setUpGet	}
-		//{POST,		&request::setUpMethod	},
+	static nodeHandler nodes[] = {
+		{ONE, 		&request::setUpGet		},
+		//{POST,	&request::setUpMethod	},
 		//{DELETE,	&request::response		}
+		{TWO,		&request::endNode		}
 	};
+	
+	std::cout << "SET UP ";
 
-	return executeNode(GET, nodes, CASCADE_OFF);
+	return execNode(_currentSetUp, nodes, CASCADE_OFF);
 }
 
 static void sendChunk(int fd, const std::string &data)
 {
+	std::cout << "----------------------------" << std::endl;
+	std::cout << data << std::endl;
+	std::cout << "----------------------------" << std::endl;
 	std::ostringstream chunk;
 	chunk << std::hex << data.size() << "\r\n";
 	chunk << data << "\r\n";
@@ -262,26 +236,35 @@ StatusCode	request::readAndSend()
 	_buffer.clear();
 	StatusCode	code = myRead(_infile, _buffer);
 	
+	std::cout << "readAndSend" << std::endl;
+
+	if (code == READ_ERROR)
+		return code;
+
+	sendChunk(_fd, _buffer);
+
 	if (code == CLIENT_DISCONECTED)
 	{
 		write(_fd, "0\r\n\r\n", 5);
+		std::cout << "ACAVAAAAO" << std::endl;
 		return END;
 	}
 
-	if (code > BIG_ERRORS)
-		sendChunk(_fd, _buffer);
 	return code;
 }
 
 StatusCode	request::response()
 {
-	static nodeHandler<HandleResponse> nodes[END_RESPONSE] = {
-		{READ_AND_SEND, &request::readAndSend	}
+	static nodeHandler nodes[] = {
+		{ONE,	&request::readAndSend	},
 		//{AUTOINDEX,		&request::setUpHeader		},
 		//{CGI,			&request::setUpBody			}
+		{TWO,	&request::endNode		}
 	};
 
-	return executeNode(READ_AND_SEND, nodes, CASCADE_OFF);
+	std::cout << "Response" << std::endl;
+
+	return execNode(_currentResponse, nodes, CASCADE_OFF);
 }
 
 //StatusCode	request::response()
@@ -327,52 +310,56 @@ StatusCode	request::response()
 //	return END;
 //}
 
+
 void	request::end()
 {
-	if (_protocol == "HTTP/1.1" || _headers.find("Connection") != _headers.end())
-	{
-		_method.clear();
-		_buffer.clear();
-		_path.clear();
-		_protocol.clear();
-		_headers.clear();
-		_contentType.clear();
-		_contentLength = 0;
-		_query.clear();
+	//if (_protocol == "HTTP/1.1" || _headers.find("Connection") != _headers.end())
+	//{
+	//	_method.clear();
+	//	_buffer.clear();
+	//	_path.clear();
+	//	_protocol.clear();
+	//	_headers.clear();
+	//	_contentType.clear();
+	//	_contentLength = 0;
+	//	_query.clear();
+//
+	//	//_location = ;
+	//	_currentFunction = ONE;
+	//	_currentRead = ONE;
+	//	_code = OK;
+//
+	//	epollMood(_fd, EPOLLIN);
+	//}
+	//else
 
-		//_location = ;
-		_currentFunction = READ_REQUEST;
-		_currentRead = READ_REQUEST_LINE;
-		_code = OK;
-	}
-	else
-	{
-		epollMood(_fd, EPOLL_CTL_DEL);
-		//epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
-		close(_fd);
-		requestHandler::delReq(_fd);
-	}
+	std::cout << "END" << std::endl;
+	epollMood(_fd, EPOLL_CTL_DEL);
+	//epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
+	close(_fd);
+	requestHandler::delReq(_fd);
 	if (_infile > 0)
 		close(_infile);
 }
 
 void request::exec()
 {
-	static nodeHandler<Request> nodes[END_REQUEST] = {
-		{READ_REQUEST, 		&request::readRequest	},
-		{METHOD_SET_UP,		&request::setUpMethod	},
-		{HANDLE_RESPONSE,	&request::response		}
+	static nodeHandler nodes[FOUR + 1] = {
+		{ONE, 	&request::readRequest	},
+		{TWO,	&request::setUpMethod	},
+		{THREE,	&request::response		},
+		{FOUR,	&request::endNode		}
 	};
 
-	_code = executeNode(_currentFunction, nodes, CASCADE_ON);
+	_code = execNode(_currentFunction, nodes, CASCADE_ON);
 
-	if (_code > RESPONSE)
-	{
-		_code = response();
-		_currentFunction = HANDLE_RESPONSE;
-	}
+	//if (_code > RESPONSE)
+	//{
+	//	_code = response();
+	//	_currentFunction = THREE;
+	//}
 	
-	if (_code == END)
+	if (_code == FINISHED)
 		end();
 }
 
