@@ -13,11 +13,7 @@ request::request(int fd, serverConfig& server):
 	_code(OK)
 	{}
 
-
-request::request(const request& other)
-{
-	*this = other;
-}
+request::request(const request& other) { *this = other; }
 
 request::~request() {}
 
@@ -59,11 +55,8 @@ StatusCode request::execNode(Nodes& current, const nodeHandler nodes[], int mode
 		if (code != FINISHED || mode == CASCADE_OFF)
 			break;
 
-		std::cout << "NEXT ENUM" << std::endl;
-
 		current = static_cast<Nodes>(static_cast<int>(current) + 1);
 	}
-
 	return code;
 }
 
@@ -83,24 +76,10 @@ StatusCode	request::setUpRequestLine()
 	{
 		std::istringstream iss(_buffer);
 
-		std::cout << "--------------------------" << std::endl;
-		std::cout << _buffer << std::endl;
-
 		if (!(iss >> _method >> _path >> _protocol))
 			return BAD_REQUEST;
 
 		_buffer.erase(0, header_end + 1);
-
-		std::cout << _method + " - ";
-
-		std::cout << _path + " - ";
-
-		std::cout << _protocol << std::endl;
-
-		std::cout << "--------------------------" << std::endl;
-		std::cout << _buffer << std::endl;
-		std::cout << "--------------------------" << std::endl;
-
 
 		_location = _server->getLocation(_path);
 
@@ -108,10 +87,6 @@ StatusCode	request::setUpRequestLine()
 			_path = _location.getRoot() + _path.substr(_location.getPath().size());
 		else
 			_path = _location.getRoot() + _path;
-
-		std::cout << "PATH: " + _path << std::endl;
-
-		std::cout << "Request line finished" << std::endl;
 		
 		return FINISHED;
 	}
@@ -139,10 +114,7 @@ StatusCode request::setUpHeader()
 		_buffer.erase(0, end + 2);
 
 		if (line.empty())
-		{
-			std::cout << "Header finished" << std::endl;
 			return FINISHED;
-		}
 
 		size_t colon = line.find(':');
 		if (colon == std::string::npos)
@@ -161,7 +133,6 @@ StatusCode	request::setUpBody()
 {
 	if (_buffer.length() >= _contentLength)
 	{
-		std::cout << "Body finished" << std::endl;
 		_body = _buffer;
 		return FINISHED;
 	}
@@ -191,8 +162,6 @@ StatusCode request::readRequest()
 {
 	StatusCode code = myRead(_fd, _buffer);
 
-	std::cout << "Lets Read" << std::endl;
-
 	if (code > BIG_ERRORS)
 		return code;
 
@@ -206,16 +175,18 @@ StatusCode request::readRequest()
 	return execNode(_currentRead, nodes, CASCADE_ON);
 }
 
-StatusCode	request::setUpMethod()	
+StatusCode	request::setUpMethod()
 {
 	static nodeHandler nodes[] = {
-		{ONE, 		&request::setUpGet		},
-		//{POST,	&request::setUpMethod	},
-		//{DELETE,	&request::response		}
-		{TWO,		&request::endNode		}
+		{ONE, 	&request::setUpGet	},
+		{TWO,	&request::setUpPost	},
+		{THREE,	&request::setUpDel	},
+		{FOUR,	&request::endNode	}
 	};
-	
-	std::cout << "SET UP ";
+
+	epollMood(_fd, EPOLLOUT);
+
+	if ()
 
 	return execNode(_currentSetUp, nodes, CASCADE_OFF);
 }
@@ -246,8 +217,7 @@ StatusCode	request::readAndSend()
 	if (code == CLIENT_DISCONECTED)
 	{
 		write(_fd, "0\r\n\r\n", 5);
-		std::cout << "ACAVAAAAO" << std::endl;
-		return END;
+		return FINISHED;
 	}
 
 	return code;
@@ -257,12 +227,11 @@ StatusCode	request::response()
 {
 	static nodeHandler nodes[] = {
 		{ONE,	&request::readAndSend	},
-		//{AUTOINDEX,		&request::setUpHeader		},
-		//{CGI,			&request::setUpBody			}
-		{TWO,	&request::endNode		}
+		{TWO,	&request::autoindex		},
+		{THREE,	&request::cgi			},
+		{FOUR,	&request::endNode		}
 	};
 
-	std::cout << "Response" << std::endl;
 
 	return execNode(_currentResponse, nodes, CASCADE_OFF);
 }
@@ -323,20 +292,21 @@ void	request::end()
 	//	_contentType.clear();
 	//	_contentLength = 0;
 	//	_query.clear();
-//
+
 	//	//_location = ;
 	//	_currentFunction = ONE;
 	//	_currentRead = ONE;
 	//	_code = OK;
-//
+
 	//	epollMood(_fd, EPOLLIN);
 	//}
 	//else
 
-	std::cout << "END" << std::endl;
-	epollMood(_fd, EPOLL_CTL_DEL);
-	//epoll_ctl(_fd, EPOLL_CTL_DEL, _fd, NULL);
-	close(_fd);
+	if (_fd > 0)
+	{
+		epollMood(_fd, EPOLL_CTL_DEL);
+		close(_fd);
+	}
 	requestHandler::delReq(_fd);
 	if (_infile > 0)
 		close(_infile);
@@ -353,11 +323,11 @@ void request::exec()
 
 	_code = execNode(_currentFunction, nodes, CASCADE_ON);
 
-	//if (_code > RESPONSE)
-	//{
-	//	_code = response();
-	//	_currentFunction = THREE;
-	//}
+	if (_code > ERRORS)	// If an error occurs we respond inmediatelly
+	{	
+		_code = response();
+		_currentFunction = THREE;
+	}
 	
 	if (_code == FINISHED)
 		end();

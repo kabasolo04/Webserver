@@ -207,108 +207,100 @@ StatusCode	request::setUpGet()
 // POST                                                                      //
 //---------------------------------------------------------------------------//
 
-//myPost::myPost(request* baby): request(*baby) {}
-//
-//myPost::~myPost() {}
-//
-//enum ContentType
-//{
-//	CT_MULTIPART,
-//	CT_FORM,
-//	CT_JSON,
-//	CT_UNSUPPORTED
-//};
-//
-//ContentType	contentType(const std::string& ctype)
-//{
-//	if (ctype.find("multipart/form-data") != std::string::npos)
-//		return CT_MULTIPART;
-//	if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
-//		return CT_FORM;
-//	if (ctype.find("application/json") != std::string::npos)
-//		return CT_JSON;
-//	return CT_UNSUPPORTED;
-//}
-//
-//StatusCode	myPost::setUpMethod()
-//{
-//	//if (isCgiScript(_path) != "")
-//	//	return (cgi(isCgiScript(_path)), FINISHED);
-//	if (_headers.find("content-type") == _headers.end())
-//		return BAD_REQUEST;
-//
-//	StatusCode code;
-//
-//	switch (contentType(_headers["content-type"]))
-//	{
-//		case CT_MULTIPART:	code = handleMultipart();			break;
-//
-//		case CT_FORM:		code = saveForm(_body, &_location);	break;
-//
-//		case CT_JSON:		code = saveForm(_body, &_location);	break;
-//
-//		default:			return UNSUPPORTED_MEDIA_TYPE;
-//	}
-//	
-//	if (code != FINISHED)
-//		return code;
-//	_body = "<html><body><h1>Upload successful!</h1></body></html>";
-//	return OK;
-//}
-//
-//StatusCode myPost::processMethod()
-//{
-//	//CGI HEREEEEE
-//	return FINISHED;
-//}
-//
-//StatusCode myPost::handleMultipart()
-//{
-//	std::string contentType = _headers["content-type"];
-//	size_t p = contentType.find("boundary=");
-//	if (p == std::string::npos)
-//		return BAD_REQUEST;
-//
-//	size_t boundaryStart = p + 9;
-//	if (boundaryStart >= contentType.size())
-//		return BAD_REQUEST; // malformed header
-//
-//	std::string boundary = "--" + contentType.substr(boundaryStart);
-//
-//	size_t start = _body.find(boundary);
-//	if (start == std::string::npos)
-//		return BAD_REQUEST;
-//	start += boundary.size() + 2;
-//
-//	while (start < _body.size())
-//	{
-//		size_t next = _body.find(boundary, start);
-//		bool last = false;
-//		if (next == std::string::npos)
-//		{
-//			next = _body.find(boundary + "--", start);
-//			if (next == std::string::npos)
-//				next = _body.size();
-//			last = true;
-//		}
-//
-//		if (next < start)
-//			return BAD_REQUEST;
-//
-//		if (last)
-//			break;
-//
-//		std::string part = _body.substr(start, next - start);
-//		if (part.find("filename=") != std::string::npos)
-//			saveFile(part, &_location);
-//		else
-//			saveForm(part, &_location);
-//
-//		start = next + boundary.size();
-//	}
-//	return FINISHED;
-//}
-//
+enum ContentType
+{
+	CT_MULTIPART,
+	CT_FORM,
+	CT_JSON,
+	CT_UNSUPPORTED
+};
+
+static ContentType	contentType(const std::string& ctype)
+{
+	if (ctype.find("multipart/form-data") != std::string::npos)
+		return CT_MULTIPART;
+	if (ctype.find("application/x-www-form-urlencoded") != std::string::npos)
+		return CT_FORM;
+	if (ctype.find("application/json") != std::string::npos)
+		return CT_JSON;
+	return CT_UNSUPPORTED;
+}
+
+StatusCode	request::setUpMethod()
+{
+	//if (isCgiScript(_path) != "")
+	//	return (cgi(isCgiScript(_path)), FINISHED);
+	if (_headers.find("content-type") == _headers.end())
+		return BAD_REQUEST;
+
+	StatusCode code;
+
+	switch (contentType(_headers["content-type"]))
+	{
+		case CT_MULTIPART:	code = handleMultipart();			break;
+
+		case CT_FORM:		code = saveForm(_body, &_location);	break;
+
+		case CT_JSON:		code = saveForm(_body, &_location);	break;
+
+		default:			return UNSUPPORTED_MEDIA_TYPE;
+	}
+	
+	if (code != FINISHED)
+		return code;
+	_body = "<html><body><h1>Upload successful!</h1></body></html>";
+
+	return OK;
+}
+
+
+StatusCode myPost::handleMultipart()
+{
+	std::string contentType = _headers["content-type"];
+	size_t p = contentType.find("boundary=");
+	if (p == std::string::npos)
+		return BAD_REQUEST;
+
+	size_t boundaryStart = p + 9;
+	if (boundaryStart >= contentType.size())
+		return BAD_REQUEST; // malformed header
+
+	std::string boundary = "--" + contentType.substr(boundaryStart);
+
+	size_t start = _body.find(boundary);
+	if (start == std::string::npos)
+		return BAD_REQUEST;
+	start += boundary.size() + 2;
+
+	while (start < _body.size())
+	{
+		size_t next = _body.find(boundary, start);
+		bool last = false;
+		if (next == std::string::npos)
+		{
+			next = _body.find(boundary + "--", start);
+			if (next == std::string::npos)
+				next = _body.size();
+			last = true;
+		}
+
+		if (next < start)
+			return BAD_REQUEST;
+
+		if (last)
+			break;
+
+		std::string part = _body.substr(start, next - start);
+		if (part.find("filename=") != std::string::npos)
+			saveFile(part, &_location);
+		else
+			saveForm(part, &_location);
+
+		start = next + boundary.size();
+	}
+	return FINISHED;
+}
+
 
 /*
 bool myPost::chunkedCheck()
@@ -345,18 +337,16 @@ bool myPost::chunkedCheck()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
-//myDelete::myDelete(request* baby): request(*baby)
-//{
-//	_body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
-//}
-
-StatusCode	request::setUpDelete()
+StatusCode	request::setUpDel()
 {
 	if (is_directory(_path))
 		return FORBIDEN;
 
 	if (std::remove(_path.c_str()) == 0)
+	{
+		_body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
 		return OK;
+	}
 
 	switch (errno)
 	{

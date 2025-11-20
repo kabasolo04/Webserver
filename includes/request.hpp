@@ -52,7 +52,6 @@ enum StatusCode
 //-------------------- FLAGS
 	REPEAT,
 	FINISHED,
-	TRANSFORM,
 	END,
 	STATUS,
 //-------------------- ERRORS
@@ -120,7 +119,7 @@ class request
 
 		StatusCode	setUpGet();
 		StatusCode	setUpPost();
-		StatusCode	setUpDelete();
+		StatusCode	setUpDel();
 
 		StatusCode	readAndSend();
 //		StatusCode	autoindex();
