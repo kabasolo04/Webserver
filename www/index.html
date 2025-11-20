@@ -45,8 +45,21 @@
 		<img class="logo" src="42.jpeg" alt="logo">
 	</nav>
 	<a href="./cgi.php?potto=aiai">
-		<p>php test</p>
+		<p>php GET test</p>
 	</a>
+
+	<!-- PHP POST test: simple form that sends POST to cgi.php -->
+	<form action="/cgi.php" method="POST">
+		<input type="hidden" name="potto" value="from_post">
+		<button type="submit">php POST test (form)</button>
+	</form>
+
+	<!-- Python GET test: link with query string -->
+	<a href="/cgi_test.py?name=Bob">
+		<p>python GET test</p>
+	</a>
+
+	<!-- Existing python POST test (kept) -->
 	<form action="/cgi_test.py" method="POST">
 		<label for="name">Name:</label>
 		<input type="text" id="name" name="name" value="Alice"><br><br>

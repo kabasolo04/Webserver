@@ -9,8 +9,8 @@ location::location():
 	_requestLineSize(8192),
 	_headerSize(8192),
 	_bodySize(0),
-	_uploadEnable(0)
-	//uploadStore(empty)
+	_uploadEnable(0),
+	_uploadStore("uploads")
 	//cgiExtensions(empty)
 	//cgiRoot(empty)
 	{

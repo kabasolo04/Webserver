@@ -4,6 +4,7 @@ request::request(int fd, serverConfig& server):
 	_server(&server),
 	_fd(fd),
 	_body(""),
+	_cgiChild(0),
 	_location(),
 	_contentLength(0),
 	_currentFunction(ONE),
@@ -35,6 +36,7 @@ request&	request::operator = (const request& other)
 		_currentFunction	= other._currentFunction;
 		_currentRead		= other._currentRead;
 		_code				= other._code;
+		_cgiChild			= other._cgiChild;
 	}
 	return (*this);
 }
@@ -246,11 +248,11 @@ StatusCode	request::readAndSend()
 	return code;
 }
 
-StatusCode	request::cgi()
-{
-	std::cout << "CGI" << std::endl;
-	return FINISHED;
-}
+//StatusCode	request::cgi()
+//{
+//	std::cout << "CGI" << std::endl;
+//	return FINISHED;
+//}
 
 StatusCode	request::autoindex()
 {
@@ -417,6 +419,14 @@ void	request::end()
 		close(_fd);
 	}
 	requestHandler::delReq(_fd);
+	close(_fd);
+	// If there is a running CGI child, terminate it before closing the pipe
+	if (_cgiChild > 0)
+	{
+		kill(_cgiChild, SIGKILL);
+		waitpid(_cgiChild, NULL, 0);
+		_cgiChild = 0;
+	}
 	if (_infile > 0)
 		close(_infile);
 }
