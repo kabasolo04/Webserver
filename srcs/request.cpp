@@ -39,6 +39,27 @@ request&	request::operator = (const request& other)
 	return (*this);
 }
 
+static std::string getReasonPhrase(StatusCode code)
+{
+	switch (code)
+	{
+		case OK:						return "OK";
+		case NO_CONTENT:				return "No Content";
+		case FOUND:						return "Found";
+		case BAD_REQUEST:				return "Bad Request";
+		case NOT_FOUND:					return "Not Found";
+		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
+		case FORBIDEN:					return "Forbiden";
+		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
+		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
+		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
+		case NOT_IMPLEMENTED: 			return "Not Implemented";
+		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
+		case LOL: 						return "No Fucking Idea Mate";
+		default:						return "Unknown";
+	}
+}
+
 StatusCode	request::endNode()	{ return END; }
 
 StatusCode request::execNode(Nodes& current, const nodeHandler nodes[], int mode)
@@ -184,18 +205,23 @@ StatusCode	request::setUpMethod()
 		{FOUR,	&request::endNode	}
 	};
 
-	epollMood(_fd, EPOLLOUT);
+	Nodes node = ONE;
 
-	if ()
+	if (!_location.methodAllowed(_method))
+		return METHOD_NOT_ALLOWED;
 
-	return execNode(_currentSetUp, nodes, CASCADE_OFF);
+	if (_method == "GET")
+		node = ONE;
+	else if (_method == "POST")
+		node = TWO;
+	else if (_method == "DELETE")
+		node = THREE;
+
+	return execNode(node, nodes, CASCADE_OFF);
 }
 
 static void sendChunk(int fd, const std::string &data)
 {
-	std::cout << "----------------------------" << std::endl;
-	std::cout << data << std::endl;
-	std::cout << "----------------------------" << std::endl;
 	std::ostringstream chunk;
 	chunk << std::hex << data.size() << "\r\n";
 	chunk << data << "\r\n";
@@ -206,8 +232,6 @@ StatusCode	request::readAndSend()
 {
 	_buffer.clear();
 	StatusCode	code = myRead(_infile, _buffer);
-	
-	std::cout << "readAndSend" << std::endl;
 
 	if (code == READ_ERROR)
 		return code;
@@ -219,8 +243,19 @@ StatusCode	request::readAndSend()
 		write(_fd, "0\r\n\r\n", 5);
 		return FINISHED;
 	}
-
 	return code;
+}
+
+StatusCode	request::cgi()
+{
+	std::cout << "CGI" << std::endl;
+	return FINISHED;
+}
+
+StatusCode	request::autoindex()
+{
+	std::cout << "AUTOINDEX" << std::endl;
+	return FINISHED;
 }
 
 StatusCode	request::response()
@@ -231,7 +266,6 @@ StatusCode	request::response()
 		{THREE,	&request::cgi			},
 		{FOUR,	&request::endNode		}
 	};
-
 
 	return execNode(_currentResponse, nodes, CASCADE_OFF);
 }
@@ -280,28 +314,103 @@ StatusCode	request::response()
 //}
 
 
+void request::setUpResponse()
+{
+	if (_code >= BIG_ERRORS)
+	{
+		_currentFunction = FOUR;
+		std::cout << "BIG ERROR" << std::endl;
+		return ;
+	}
+
+	epollMood(_fd, EPOLLOUT);
+	_currentFunction = THREE;
+
+	std::stringstream response;
+
+	if (_code > ERRORS)
+	{
+		response << _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n" << "Content-Type: text/html" << "\r\n";
+
+		if (_infile > 0)
+			close(_infile);
+
+		std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(_code);
+		if (it != _location.getErrorPages().end())
+		{
+			_infile = open(it->second.c_str(), O_RDONLY);
+			if (_infile < 0)
+			{
+				_currentFunction = FOUR;
+				return ;
+			}
+			_currentResponse = ONE;
+			response << "Transfer-Encoding: chunked\r\n" << "\r\n";
+		}
+		else
+		{
+			response << "Content-Length: " << getReasonPhrase(_code).length() + 4 << "\r\n" << "\r\n";
+			response << _code << " " << getReasonPhrase(_code) << "\r\n" << "\r\n";
+			write(_fd, response.str().c_str(), response.str().size());
+			_currentFunction = FOUR;
+			return ;
+		}
+		write(_fd, response.str().c_str(), response.str().size());
+		return ;
+	}
+	else
+	{
+		response	<< _protocol << " " << OK << " " << getReasonPhrase(OK).c_str() << "\r\n" << "Content-Type: text/html" << "\r\n";
+
+		if (_code == CGI)
+		{
+			response << "Transfer-Encoding: chunked\r\n" << "\r\n";
+			write(_fd, response.str().c_str(), response.str().size());
+			_currentResponse = THREE;
+			return ;
+		}
+
+		if (_code == AUTOINDEX)
+		{
+			response << "Transfer-Encoding: chunked\r\n" << "\r\n";
+			write(_fd, response.str().c_str(), response.str().size());
+			_currentResponse = TWO;
+			return ;
+		}
+
+		if (_code == OK)
+		{
+			if (_infile > 0)
+			{
+				response << "Transfer-Encoding: chunked\r\n" << "\r\n";
+				write(_fd, response.str().c_str(), response.str().size());
+				_currentResponse = ONE;
+				return ;
+			}
+
+			response << "Content-Length: " << _body.length() << "\r\n" << "\r\n";
+			response << _body;
+
+			write(_fd, response.str().c_str(), response.str().size());
+		}
+		return ;
+	}
+}
+
+/*
+	if (_code == CGI)
+		_currentResponse = THREE;
+	if (_code == AUTOINDEX)
+		_currentResponse = TWO;
+
+	if (_code > ERRORS)
+	{
+		
+	}
+*/
+
 void	request::end()
 {
-	//if (_protocol == "HTTP/1.1" || _headers.find("Connection") != _headers.end())
-	//{
-	//	_method.clear();
-	//	_buffer.clear();
-	//	_path.clear();
-	//	_protocol.clear();
-	//	_headers.clear();
-	//	_contentType.clear();
-	//	_contentLength = 0;
-	//	_query.clear();
-
-	//	//_location = ;
-	//	_currentFunction = ONE;
-	//	_currentRead = ONE;
-	//	_code = OK;
-
-	//	epollMood(_fd, EPOLLIN);
-	//}
-	//else
-
 	if (_fd > 0)
 	{
 		epollMood(_fd, EPOLL_CTL_DEL);
@@ -323,11 +432,8 @@ void request::exec()
 
 	_code = execNode(_currentFunction, nodes, CASCADE_ON);
 
-	if (_code > ERRORS)	// If an error occurs we respond inmediatelly
-	{	
-		_code = response();
-		_currentFunction = THREE;
-	}
+	if (_code > RESPONSE)
+		setUpResponse();
 	
 	if (_code == FINISHED)
 		end();
@@ -339,3 +445,26 @@ const std::string& request::getMethod()			const { return _method;			}
 
 //	if (len == 0) std::cout << "Client Disconnnected" << std::endl;
 //	if (len < 0) std::cout << "Read Error" << std::endl;
+
+
+
+
+	//if (_protocol == "HTTP/1.1" || _headers.find("Connection") != _headers.end())
+	//{
+	//	_method.clear();
+	//	_buffer.clear();
+	//	_path.clear();
+	//	_protocol.clear();
+	//	_headers.clear();
+	//	_contentType.clear();
+	//	_contentLength = 0;
+	//	_query.clear();
+
+	//	//_location = ;
+	//	_currentFunction = ONE;
+	//	_currentRead = ONE;
+	//	_code = OK;
+
+	//	epollMood(_fd, EPOLLIN);
+	//}
+	//else

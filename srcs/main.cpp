@@ -24,6 +24,7 @@ void myAccept(int fd, serverConfig& server)
 			break;
 		}
 		std::cout << "New Request" << std::endl;
+		
 		requestHandler::addReq(clientFd, server);
 	}
 }

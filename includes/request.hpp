@@ -15,38 +15,6 @@ enum Nodes
 	FOUR
 };
 
-//enum ReadRequest
-//{
-//	READ_REQUEST_LINE,
-//	READ_HEADER,
-//	READ_BODY,
-//	END_READ
-//};
-//
-//enum MethodSetUp
-//{
-//	GET,
-//	POST,
-//	DELETE,
-//	END_SET_UP
-//};
-//
-//enum HandleResponse
-//{
-//	READ_AND_SEND,
-//	AUTOINDEX,
-//	CGI,
-//	END_RESPONSE
-//};
-//
-//enum Request
-//{
-//	READ_REQUEST,
-//	METHOD_SET_UP,
-//	HANDLE_RESPONSE,
-//	END_REQUEST
-//};
-
 enum StatusCode
 {
 //-------------------- FLAGS
@@ -56,6 +24,8 @@ enum StatusCode
 	STATUS,
 //-------------------- ERRORS
 	RESPONSE,
+	CGI,
+	AUTOINDEX,
 	OK						= 200,
 	ERRORS,
 	NO_CONTENT				= 204,
@@ -72,7 +42,7 @@ enum StatusCode
 	LOL						= 999,
 	BIG_ERRORS,
 	READ_ERROR,
-	CLIENT_DISCONECTED,
+	CLIENT_DISCONECTED
 };
 
 class request;
@@ -82,7 +52,6 @@ struct nodeHandler
 	const Nodes name;
 	StatusCode (request::*handler)();
 };
-
 
 class request
 {
@@ -110,24 +79,29 @@ class request
 		StatusCode							_code;
 		
 		//void		printHeaders();
-		
-		StatusCode	execNode(Nodes& current, const nodeHandler nodes[], int mode);
 
+//---------------------------------------------------------------------------//
 		StatusCode	setUpRequestLine();
 		StatusCode	setUpHeader();
 		StatusCode	setUpBody();
 
+		StatusCode	readRequest();
+//---------------------------------------------------------------------------//
 		StatusCode	setUpGet();
 		StatusCode	setUpPost();
 		StatusCode	setUpDel();
 
-		StatusCode	readAndSend();
-//		StatusCode	autoindex();
-//		StatusCode	cgi();
-
-		StatusCode	readRequest();
 		StatusCode	setUpMethod();
+//---------------------------------------------------------------------------//
+		StatusCode	readAndSend();
+		StatusCode	autoindex();
+		StatusCode	cgi();
+
 		StatusCode	response();
+//---------------------------------------------------------------------------//
+		StatusCode	execNode(Nodes& current, const nodeHandler nodes[], int mode);
+//---------------------------------------------------------------------------//
+
 
 		//void						cgi(std::string command);
 		//std::string				isCgiScript(std::string filename);
@@ -135,14 +109,14 @@ class request
 		//void						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
 		//std::vector<std::string>	build_env();
 
+		void 		setUpResponse();
 		void		end();
 		StatusCode	endNode();
-	
-		request(const request& other);
-		request& operator = (const request& other);
 		
 	public:
 		request(int fd, serverConfig& server);
+		request(const request& other);
+		request& operator = (const request& other);
 		virtual ~request();
 
 		const std::string& getContentType() const;

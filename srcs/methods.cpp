@@ -107,43 +107,15 @@ static bool	is_file(const std::string &path)
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-static std::string getReasonPhrase(StatusCode code)
-{
-	switch (code)
-	{
-		case OK:						return "OK";
-		case NO_CONTENT:				return "No Content";
-		case FOUND:						return "Found";
-		case BAD_REQUEST:				return "Bad Request";
-		case NOT_FOUND:					return "Not Found";
-		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
-		case FORBIDEN:					return "Forbiden";
-		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
-		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
-		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
-		case NOT_IMPLEMENTED: 			return "Not Implemented";
-		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
-		case LOL: 						return "No Fucking Idea Mate";
-		default:						return "Unknown";
-	}
-}
 
 void	generateAutoIndex()
 {
 	std::cout << "AUTOINDEEEX" << std::endl;
 }
 
-static void	epollMood(int fd, uint32_t mood)
-{
-	struct epoll_event ev;
-	ev.events = mood;
-	ev.data.fd = fd;
-	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
-}
 
 StatusCode	request::setUpGet()
 {
-	std::cout << "GET" << std::endl;
 	std::ifstream file;
 
 	//setQuery();	// Strip the query from the path to separate them
@@ -153,17 +125,15 @@ StatusCode	request::setUpGet()
 		if (!_location.isAutoindex())
 			_path += "/" + _location.getIndex();
 		else
-			generateAutoIndex();
+			return AUTOINDEX;
 	}
-
-	std::cout << "PATH: " + _path << std::endl;
 
 	if (!is_file(_path))
 	{
 		if (!_location.isAutoindex())
 			return NOT_FOUND;
 		else
-			generateAutoIndex();
+			return AUTOINDEX;
 	}
 
 	//if (isCgiScript(_path) != "")
@@ -180,18 +150,7 @@ StatusCode	request::setUpGet()
 	if (_infile < 0)
 		return NOT_FOUND;
 
-	std::cout << "FileFound" << std::endl;
-
-	epollMood(_fd, EPOLLOUT);
-
-	std::stringstream response;
-	response	<< _protocol << " " << OK << " " << getReasonPhrase(OK).c_str() << "\r\n"
-				<< "Content-Type: text/html" << "\r\n"
-				<< "Transfer-Encoding: chunked\r\n" << "\r\n";
-	
-	write(_fd, response.str().c_str(), response.str().size());
-
-	return FINISHED;
+	return OK;
 }
 
 //void	myGet::setQuery()
@@ -226,7 +185,7 @@ static ContentType	contentType(const std::string& ctype)
 	return CT_UNSUPPORTED;
 }
 
-StatusCode	request::setUpMethod()
+StatusCode	request::setUpPost()
 {
 	//if (isCgiScript(_path) != "")
 	//	return (cgi(isCgiScript(_path)), FINISHED);
@@ -237,11 +196,11 @@ StatusCode	request::setUpMethod()
 
 	switch (contentType(_headers["content-type"]))
 	{
-		case CT_MULTIPART:	code = handleMultipart();			break;
+		//case CT_MULTIPART:	code = handleMultipart();			break;
 
-		case CT_FORM:		code = saveForm(_body, &_location);	break;
+		//case CT_FORM:		code = saveForm(_body, &_location);	break;
 
-		case CT_JSON:		code = saveForm(_body, &_location);	break;
+		//case CT_JSON:		code = saveForm(_body, &_location);	break;
 
 		default:			return UNSUPPORTED_MEDIA_TYPE;
 	}
@@ -254,52 +213,52 @@ StatusCode	request::setUpMethod()
 }
 
 
-StatusCode myPost::handleMultipart()
-{
-	std::string contentType = _headers["content-type"];
-	size_t p = contentType.find("boundary=");
-	if (p == std::string::npos)
-		return BAD_REQUEST;
-
-	size_t boundaryStart = p + 9;
-	if (boundaryStart >= contentType.size())
-		return BAD_REQUEST; // malformed header
-
-	std::string boundary = "--" + contentType.substr(boundaryStart);
-
-	size_t start = _body.find(boundary);
-	if (start == std::string::npos)
-		return BAD_REQUEST;
-	start += boundary.size() + 2;
-
-	while (start < _body.size())
-	{
-		size_t next = _body.find(boundary, start);
-		bool last = false;
-		if (next == std::string::npos)
-		{
-			next = _body.find(boundary + "--", start);
-			if (next == std::string::npos)
-				next = _body.size();
-			last = true;
-		}
-
-		if (next < start)
-			return BAD_REQUEST;
-
-		if (last)
-			break;
-
-		std::string part = _body.substr(start, next - start);
-		if (part.find("filename=") != std::string::npos)
-			saveFile(part, &_location);
-		else
-			saveForm(part, &_location);
-
-		start = next + boundary.size();
-	}
-	return FINISHED;
-}
+//StatusCode myPost::handleMultipart()
+//{
+//	std::string contentType = _headers["content-type"];
+//	size_t p = contentType.find("boundary=");
+//	if (p == std::string::npos)
+//		return BAD_REQUEST;
+//
+//	size_t boundaryStart = p + 9;
+//	if (boundaryStart >= contentType.size())
+//		return BAD_REQUEST; // malformed header
+//
+//	std::string boundary = "--" + contentType.substr(boundaryStart);
+//
+//	size_t start = _body.find(boundary);
+//	if (start == std::string::npos)
+//		return BAD_REQUEST;
+//	start += boundary.size() + 2;
+//
+//	while (start < _body.size())
+//	{
+//		size_t next = _body.find(boundary, start);
+//		bool last = false;
+//		if (next == std::string::npos)
+//		{
+//			next = _body.find(boundary + "--", start);
+//			if (next == std::string::npos)
+//				next = _body.size();
+//			last = true;
+//		}
+//
+//		if (next < start)
+//			return BAD_REQUEST;
+//
+//		if (last)
+//			break;
+//
+//		std::string part = _body.substr(start, next - start);
+//		if (part.find("filename=") != std::string::npos)
+//			saveFile(part, &_location);
+//		else
+//			saveForm(part, &_location);
+//
+//		start = next + boundary.size();
+//	}
+//	return FINISHED;
+//}
 
 
 /*
