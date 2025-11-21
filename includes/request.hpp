@@ -2,7 +2,7 @@
 
 #include "WebServer.hpp"
 
-#define BUFFER 5
+#define BUFFER 1024
 
 #define CASCADE_OFF	0
 #define CASCADE_ON	1

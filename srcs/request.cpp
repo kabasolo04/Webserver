@@ -3,6 +3,7 @@
 request::request(int fd, serverConfig& server):
 	_server(&server),
 	_fd(fd),
+	_infile(0),
 	_body(""),
 	_cgiChild(0),
 	_location(),
@@ -24,6 +25,7 @@ request&	request::operator = (const request& other)
 	{
 		_server				= other._server;
 		_fd					= other._fd;
+		_infile				= other._infile;
 		_method				= other._method;
 		_buffer				= other._buffer;
 		_path				= other._path;
@@ -222,42 +224,47 @@ StatusCode	request::setUpMethod()
 	return execNode(node, nodes, CASCADE_OFF);
 }
 
-static void sendChunk(int fd, const std::string &data)
-{
-	std::ostringstream chunk;
-	chunk << std::hex << data.size() << "\r\n";
-	chunk << data << "\r\n";
-	write(fd, chunk.str().c_str(), chunk.str().size());
-}
+//static void sendChunk(int fd, const std::string &data)
+//{
+//	std::ostringstream chunk;
+//	chunk << std::hex << data.size() << "\r\n";
+//	chunk << data << "\r\n";
+//	write(fd, chunk.str().c_str(), chunk.str().size());
+//}
 
 StatusCode	request::readAndSend()
 {
 	_buffer.clear();
 	StatusCode	code = myRead(_infile, _buffer);
 
-	if (code == READ_ERROR)
-		return code;
+	//if (code == READ_ERROR)
+	//	return code;
 
-	sendChunk(_fd, _buffer);
+	//sendChunk(_fd, _buffer);
 
-	if (code == CLIENT_DISCONECTED)
-	{
-		write(_fd, "0\r\n\r\n", 5);
-		return FINISHED;
-	}
 	return code;
 }
-
-//StatusCode	request::cgi()
-//{
-//	std::cout << "CGI" << std::endl;
-//	return FINISHED;
-//}
 
 StatusCode	request::autoindex()
 {
 	std::cout << "AUTOINDEX" << std::endl;
 	return FINISHED;
+}
+
+static StatusCode sendChunk(int fd, const std::string &data)
+{
+    std::ostringstream chunk;
+    chunk << std::hex << data.size() << "\r\n";
+    chunk << data << "\r\n";
+
+    std::string out = chunk.str();
+
+    ssize_t ret = send(fd, out.c_str(), out.size(), MSG_NOSIGNAL);
+
+    if (ret == -1 && (errno == EPIPE || errno == ECONNRESET))
+        return CLIENT_DISCONECTED; // disconnected
+
+    return FINISHED;
 }
 
 StatusCode	request::response()
@@ -269,7 +276,18 @@ StatusCode	request::response()
 		{FOUR,	&request::endNode		}
 	};
 
-	return execNode(_currentResponse, nodes, CASCADE_OFF);
+	StatusCode code = execNode(_currentResponse, nodes, CASCADE_OFF);
+
+	if (code == READ_ERROR)
+		return code;
+
+	if (sendChunk(_fd, _buffer) != CLIENT_DISCONECTED && code == CLIENT_DISCONECTED)
+	{
+		write(_fd, "0\r\n\r\n", 5);
+		return FINISHED;
+	}
+
+	return code;
 }
 
 //StatusCode	request::response()
@@ -321,8 +339,16 @@ void request::setUpResponse()
 	if (_code >= BIG_ERRORS)
 	{
 		_currentFunction = FOUR;
-		std::cout << "BIG ERROR" << std::endl;
-		return ;
+		if (_code == CLIENT_DISCONECTED)
+		{
+			std::cout << "CLIEN DISCONNECTED" << std::endl;
+			return ;
+		}
+		if (_code == READ_ERROR)
+		{
+			_code = INTERNAL_SERVER_ERROR;
+			std::cout << "READ ERROR" << std::endl;
+		}
 	}
 
 	epollMood(_fd, EPOLLOUT);
@@ -335,7 +361,10 @@ void request::setUpResponse()
 		response << _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n" << "Content-Type: text/html" << "\r\n";
 
 		if (_infile > 0)
+		{
 			close(_infile);
+			_infile = 0;
+		}
 
 		std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(_code);
 		if (it != _location.getErrorPages().end())
@@ -418,8 +447,6 @@ void	request::end()
 		epollMood(_fd, EPOLL_CTL_DEL);
 		close(_fd);
 	}
-	requestHandler::delReq(_fd);
-	close(_fd);
 	// If there is a running CGI child, terminate it before closing the pipe
 	if (_cgiChild > 0)
 	{
@@ -429,6 +456,8 @@ void	request::end()
 	}
 	if (_infile > 0)
 		close(_infile);
+
+	requestHandler::delReq(_fd);
 }
 
 void request::exec()
