@@ -115,10 +115,167 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
+std::string		buildHttpResponse(const std::string& body, std::string fileType, std::string path)
+{
+	struct stat st;
 
-void	generateAutoIndex()
+	path = "." + path;
+	if (stat(path.c_str(), &st) == 0)
+	{
+		if (S_ISDIR(st.st_mode))
+			fileType = "text/html";
+	}
+	std::ostringstream response;
+	response << "HTTP/1.1 200 OK\r\n";
+	response << "Content-Type: " << fileType << "\r\n";
+	response << "Content-Length: " << body.size() << "\r\n";
+	response << "Connection: close\r\n";
+	response << "\r\n";
+	response << body;
+	return (response.str());
+}
+
+std::string		getFileType(std::string path)
+{
+	std::string	ext = "";
+	unsigned long	i = 0;
+
+	while (path[i])
+		i++;
+	while (path[i] != '.')
+		i--;
+	i++;
+	while (path[i])
+	{
+		ext += path[i];
+		i++;
+	}
+	std::cout << ext << std::endl;
+
+	if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+	if (ext == "png") return "image/png";
+	if (ext == "gif") return "image/gif";
+	if (ext == "bmp") return "image/bmp";
+
+	if (ext == "html" || ext == "php") return "text/html";
+
+	if (ext == "c" || ext == "cpp") return "text/x-c";
+
+	if (ext == "pdf") return "application/pdf";
+	if (ext == "doc") return "application/msword";
+	if (ext == "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+	if (ext == "xls") return "application/vnd.ms-excel";
+	if (ext == "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+	if (ext == "ppt") return "application/vnd.ms-powerpoint";
+
+	if (ext == "txt" || ext == "md" || ext == "ini" || ext == "log") return "text/plain";
+
+	if (ext == "zip") return "application/zip";
+	if (ext == "rar") return "application/vnd.rar";
+	if (ext == "tar") return "application/x-tar";
+	if (ext == "gz") return "application/gzip";
+	if (ext == "7z") return "application/x-7z-compressed";
+
+	if (ext == "mp3") return "audio/mpeg";
+	if (ext == "wav") return "audio/wav";
+	if (ext == "flac") return "audio/flac";
+	if (ext == "aac") return "audio/aac";
+
+	if (ext == "mp4") return "video/mp4";
+	if (ext == "avi") return "video/x-msvideo";
+	if (ext == "mkv") return "video/x-matroska";
+	if (ext == "mov") return "video/quicktime";
+
+	std::ifstream doesitexist(path);
+	if (doesitexist)
+	       	return "application/octet-stream";
+	buildHttpResponse("<h1>500 Internal Server Error</h1>", "application/octet-stream", path);
+	return "";
+}
+
+std::string		generateAutoIndex(const std::string &path)
+{
+	int	i;
+	std::string newpath;
+
+	i = 0;
+	while (path[i])
+	{
+		if (path[i] == '/' && path[i + 1] == '/')
+			i++;
+		else
+		{
+			newpath += path[i];
+			i++;
+		}
+	}
+	DIR *dir = opendir(newpath.c_str());
+	if (!dir)
+	{
+		std::ifstream file(newpath);
+		if (!file)
+			return "<h1>500 Internal Server Error</h1>";
+		std::ostringstream buffer;
+		buffer << file.rdbuf();
+		return (buffer.str());
+	}
+	std::ostringstream html;
+	html << "<html><head><title>Index of " << newpath << "</title></head><body>";
+	html << "<h1>Index of " << newpath << "</h1><hr><pre>";
+
+	if (newpath != "./")
+		html << "<a href=\"..\">..</a>\n";
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != (void*)0)
+	{
+		std::string name = entry->d_name;
+		std::string fullPath = newpath + "/" + name;
+		std::cout << "ESTE: " << newpath << std::endl;
+		if (name[0] == '.')
+			continue;
+		struct stat st;
+		if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+			name += "/";
+		html << "<a href=\"" << name << "\">" << name << "</a>\n";
+	}
+
+	html << "</pre><hr></body></html>";
+	closedir(dir);
+	return (html.str());
+}
+
+std::string	get_path(std::string buffer)
+{
+	std::string	path = "";
+	unsigned long	i;
+
+	i = 0;
+	while (buffer[i] != ' ')
+		i++;
+	i++;
+	while (buffer[i] != ' ')
+		path += buffer[i], i++;
+	/* std::cout << path << std::endl; */
+	if (path != "")
+		return (path);
+	return ("");
+}
+
+
+void	AutoIndexEntryPoint(void)
 {
 	std::cout << "AUTOINDEEEX" << std::endl;
+	/* Buffer is the full request */
+	std::string path = get_path(buffer);
+	std::string body;
+	if (path != "" || path.substr(0, 2) != "..")
+		body = generateAutoIndex("." + path);
+	else
+		continue;
+
+	std::string fileType = getFileType(path);
+	std::string response = buildHttpResponse(body, fileType, path);
+	send(client_fd, response.c_str(), response.size(), 0); 	
 }
 
 
