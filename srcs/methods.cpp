@@ -230,7 +230,7 @@ std::string		generateAutoIndex(const std::string &path)
 	{
 		std::string name = entry->d_name;
 		std::string fullPath = newpath + "/" + name;
-		std::cout << "ESTE: " << newpath << std::endl;
+		/* std::cout << "ESTE: " << newpath << std::endl; */
 		if (name[0] == '.')
 			continue;
 		struct stat st;
@@ -264,8 +264,9 @@ std::string	get_path(std::string buffer)
 
 void	AutoIndexEntryPoint(void)
 {
-	std::cout << "AUTOINDEEEX" << std::endl;
+	/* std::cout << "AUTOINDEEEX" << std::endl; */
 	/* Buffer is the full request */
+	/* I'm changing it to class's request string whatever it's called there */
 	std::string path = get_path(buffer);
 	std::string body;
 	if (path != "" || path.substr(0, 2) != "..")
@@ -276,6 +277,7 @@ void	AutoIndexEntryPoint(void)
 	std::string fileType = getFileType(path);
 	std::string response = buildHttpResponse(body, fileType, path);
 	send(client_fd, response.c_str(), response.size(), 0); 	
+	/* I've thought that we could set a throw right here towards the main loop as continue to make of generating index the exception of the standard execution */
 }
 
 
