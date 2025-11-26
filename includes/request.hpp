@@ -81,7 +81,7 @@ class request
 		Nodes								_currentResponse;
 		StatusCode							_code;
 		
-		//void		printHeaders();
+		void		printHeaders();
 
 //---------------------------------------------------------------------------//
 		StatusCode	setUpRequestLine();

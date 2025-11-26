@@ -60,7 +60,6 @@ static StatusCode saveFile(const std::string &part, location *loc)
 	// Trim trailing CRLF
 	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
 		content.erase(content.size() - 2);
-
 	// Extract filename
 	size_t fnPos = headers.find("filename");
 	if (fnPos != std::string::npos)
@@ -198,7 +197,6 @@ StatusCode	request::setUpPost()
 	if (isCgiScript(_path) > ERRORS) return BAD_REQUEST;
 	if (_cgiCommand != "") return cgiSetup();
 	StatusCode code;
-
 	switch (contentType(_headers["Content-Type"]))
 	{
 		case CT_MULTIPART:	code = handleMultipart();			break;
@@ -218,8 +216,9 @@ StatusCode	request::setUpPost()
 }
 
 
-StatusCode request::handleMultipart()
+/* StatusCode request::handleMultipart()
 {
+	printHeaders();
 	std::string contentType = _headers["content-type"];
 	size_t p = contentType.find("boundary=");
 	if (p == std::string::npos)
@@ -264,54 +263,50 @@ StatusCode request::handleMultipart()
 	}
 	return FINISHED;
 }
+ */
 
+StatusCode request::handleMultipart()
+{
+	std::string contentType = _headers["Content-Type"];
+	size_t p = contentType.find("boundary=");
+	if (p == std::string::npos)
+		return BAD_REQUEST;
 
-//StatusCode myPost::handleMultipart()
-//{
-//	std::string contentType = _headers["Content-Type"];
-//	size_t p = contentType.find("boundary=");
-//	if (p == std::string::npos)
-//		return BAD_REQUEST;
-//
-//	size_t boundaryStart = p + 9;
-//	if (boundaryStart >= contentType.size())
-//		return BAD_REQUEST; // malformed header
-//
-//	std::string boundary = "--" + contentType.substr(boundaryStart);
-//
-//	size_t start = _body.find(boundary);
-//	if (start == std::string::npos)
-//		return BAD_REQUEST;
-//	start += boundary.size() + 2;
-//
-//	while (start < _body.size())
-//	{
-//		size_t next = _body.find(boundary, start);
-//		bool last = false;
-//		if (next == std::string::npos)
-//		{
-//			next = _body.find(boundary + "--", start);
-//			if (next == std::string::npos)
-//				next = _body.size();
-//			last = true;
-//		}
-//
-//		if (next < start)
-//			return BAD_REQUEST;
-//
-//		if (last)
-//			break;
-//		std::string part = _body.substr(start, next - start);
-//		if (part.find("filename=") != std::string::npos)
-//			saveFile(part, &_location);
-//		else
-//			saveForm(part, &_location);
-//
-//		start = next + boundary.size();
-//	}
-//	return FINISHED;
-//}
+	size_t boundaryStart = p + 9;
+	if (boundaryStart >= contentType.size())
+		return BAD_REQUEST; // malformed header
 
+	std::string boundary = "--" + contentType.substr(boundaryStart);
+	size_t start = _body.find(boundary);
+	if (start == std::string::npos)
+		return BAD_REQUEST;
+	start += boundary.size() + 2;
+	while (start < _body.size())
+	{
+		size_t next = _body.find(boundary, start);
+		bool last = false;
+		if (next == std::string::npos)
+		{
+			next = _body.find(boundary + "--", start);
+			if (next == std::string::npos)
+				next = _body.size();
+			last = true;
+		}
+		if (next < start)
+			return BAD_REQUEST;
+
+		if (last)
+			break;
+		std::string part = _body.substr(start, next - start);
+		if (part.find("filename=") != std::string::npos)
+			saveFile(part, &_location);
+		else
+			saveForm(part, &_location);
+
+		start = next + boundary.size();
+	}
+	return FINISHED;
+}
 
 /*
 bool myPost::chunkedCheck()

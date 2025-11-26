@@ -4,7 +4,6 @@ import sys, os, cgi
 # Emit CGI header so the webserver or client knows the content type
 # Use explicit CRLF CRLF termination so the server's header parser sees the end of headers
 sys.stdout.write("Content-Type: text/html\r\n\r\n")
-sys.stdout.flush()
 
 form = cgi.FieldStorage()
 print("<html><body>")

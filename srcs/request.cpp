@@ -139,7 +139,16 @@ StatusCode request::setUpHeader()
 		_buffer.erase(0, end + 2);
 
 		if (line.empty())
+		{
+			if(_headers.find("Content-Length") == _headers.end())
+				_contentLength = 0;
+			else
+			{
+				std::stringstream sstream(_headers["Content-Length"]);
+				sstream >> _contentLength;
+			}
 			return FINISHED;
+		}
 
 		size_t colon = line.find(':');
 		if (colon == std::string::npos)
@@ -275,6 +284,8 @@ StatusCode	request::response()
 		{THREE,	&request::cgi			},
 		{FOUR,	&request::endNode		}
 	};
+
+	_buffer.clear();
 
 	StatusCode code = execNode(_currentResponse, nodes, CASCADE_OFF);
 
@@ -423,6 +434,7 @@ void request::setUpResponse()
 			response << _body;
 
 			write(_fd, response.str().c_str(), response.str().size());
+			_currentFunction = FOUR;
 		}
 		return ;
 	}
@@ -476,6 +488,17 @@ void request::exec()
 	
 	if (_code == FINISHED)
 		end();
+}
+
+void	request::printHeaders()
+{
+	std::cout << "===HEADERS===" << std::endl;
+	std::cout << "Path: " << _path << std::endl;
+	std::cout << "Protocol: " << _protocol << std::endl;
+	std::map<std::string, std::string>::iterator it;
+	for (it = _headers.begin(); it != _headers.end(); ++it)
+	std::cout << it->first << ": " << it->second << std::endl;
+	std::cout << "=============" << std::endl;
 }
 
 const std::string& request::getContentType()	const { return _contentType;	}
