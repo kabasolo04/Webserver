@@ -171,7 +171,7 @@ StatusCode	request::setUpBody()
 		return FINISHED;
 	}
 	if (_buffer.length() >= _location.getBodySize())
-		return BAD_REQUEST;
+		return PAYLOAD_TOO_LARGE;
 	return REPEAT;
 }
 
@@ -424,6 +424,7 @@ void request::setUpResponse()
 		{
 			if (_infile > 0)
 			{
+				response << "Content-Type: " << _contentType << "\r\n";
 				response << "Transfer-Encoding: chunked\r\n" << "\r\n";
 				write(_fd, response.str().c_str(), response.str().size());
 				_currentResponse = ONE;

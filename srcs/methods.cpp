@@ -32,22 +32,22 @@ static bool	is_file(const std::string &path)
 	return S_ISREG(info.st_mode); // true if regular file
 }
 
-//static std::string	getMimeType(const std::string &path)
-//{
-//	size_t dot = path.find_last_of('.');
-//	if (dot == std::string::npos) return "application/octet-stream";
-//	std::string ext = path.substr(dot + 1);
-//
-//	if (ext == "html" || ext == "htm") return "text/html";
-//	if (ext == "css") return "text/css";
-//	if (ext == "js") return "application/javascript";
-//	if (ext == "png") return "image/png";
-//	if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
-//	if (ext == "gif") return "image/gif";
-//	if (ext == "json") return "application/json";
-//
-//	return "application/octet-stream";
-//}
+static std::string	getMimeType(const std::string &path)
+{
+	size_t dot = path.find_last_of('.');
+	if (dot == std::string::npos) return "application/octet-stream";
+	std::string ext = path.substr(dot + 1);
+
+	if (ext == "html" || ext == "htm") return "text/html";
+	if (ext == "css") return "text/css";
+	if (ext == "js") return "application/javascript";
+	if (ext == "png") return "image/png";
+	if (ext == "jpg" || ext == "jpeg" || ext == "JPG") return "image/jpeg";
+	if (ext == "gif") return "image/gif";
+	if (ext == "json") return "application/json";
+
+	return "application/octet-stream";
+}
 
 static StatusCode saveFile(const std::string &part, location *loc)
 {
@@ -149,6 +149,7 @@ StatusCode	request::setUpGet()
 	if (_cgiCommand != "")
 		return cgiSetup();
 
+	_contentType = getMimeType(_path);
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
 		return NOT_FOUND;
