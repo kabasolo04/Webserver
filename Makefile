@@ -16,6 +16,7 @@ SRCS :=	$(SRC_DIR)/main.cpp \
 		$(SRC_DIR)/conf.cpp \
 		$(SRC_DIR)/serverConfig.cpp \
 		$(SRC_DIR)/location.cpp \
+		$(SRC_DIR)/requestFunctions.cpp \
 		$(SRC_DIR)/request.cpp \
 		$(SRC_DIR)/cgi.cpp
 

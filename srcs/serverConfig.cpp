@@ -172,7 +172,7 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 		if (++it == end || *it == "}")
 			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
 
-		if (key == "location") { setLocation(it, end); continue; }	// Ends in }, and not in ; thats the reason for the continue
+		if (key == "location") setLocation(it, end);	// CAUTION Ends in }, and not in ;
 
 		else if (key == "listen") setListen(it);
 
@@ -183,9 +183,12 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 		if (it == end)
 			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
 
-		if (*it != ";")
-			throw std::runtime_error("';' expected after '" + *it  + "' | serverConfig.cpp - parseServer()");
-		it ++;	// Jump the ';'
+		if (key != "location")
+		{
+			if (*it != ";")
+				throw std::runtime_error("';' expected after '" + *it  + "' | serverConfig.cpp - parseServer()");
+			it ++;	// Jump the ';'
+		}
 	}
 
 	if (it == end || *it != "}")

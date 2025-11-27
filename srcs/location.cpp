@@ -1,12 +1,12 @@
 #include "WebServer.hpp"
 
-location::location():
+location::location():	// Deafult defined vasr
 	//root(empty),
 	_index("index.html"),
 	//methods(empty)
 	_autoindex(0),
 	//errorPages(empty)
-	_requestLineSize(8192),
+	_requestLineSize(256),
 	_headerSize(8192),
 	_bodySize(0),
 	_uploadEnable(0),
@@ -18,7 +18,7 @@ location::location():
 		_cgiExtensions["py"] = "/usr/bin/python3";
 	}
 
-location::location(const location& _default):
+location::location(const location& _default):	// Copy constructor for containers
 	_path				(_default._path				),
 	_root				(_default._root				),
 	_index				(_default._index			),
@@ -34,7 +34,7 @@ location::location(const location& _default):
 	_cgiExtensions		(_default._cgiExtensions	)
 	{}
 
-location::location(const location& _default, int lol):
+location::location(const location& _default, int lol):	// Copy constructor for us
 	//_path(_default._path),
 	_root(_default._root),
 	_index(_default._index),

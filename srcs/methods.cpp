@@ -115,16 +115,16 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-
 void	generateAutoIndex()
 {
 	std::cout << "AUTOINDEEEX" << std::endl;
 }
 
-
 StatusCode	request::setUpGet()
 {
 	std::ifstream	file;
+
+	std::cout << "IM GET" << std::endl;
 
 	setQuery();	// Strip the query from the path to separate them
 
@@ -144,16 +144,12 @@ StatusCode	request::setUpGet()
 			return AUTOINDEX;
 	}
 
-	if (isCgiScript(_path) > ERRORS) // See if it's a cgi file and assign the appropiate cgi and execute
-		return BAD_REQUEST;
-
-	if (_cgiCommand != "")
-		return cgiSetup();
-
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
 		return NOT_FOUND;
 
+	std::cout << "FILE FOUND AND OPENED" << std::endl;
+	
 	return OK;
 }
 
@@ -191,13 +187,10 @@ static ContentType	contentType(const std::string& ctype)
 
 StatusCode	request::setUpPost()
 {
+	StatusCode code;
+
 	if (_headers.find("Content-Type") == _headers.end())
 		return BAD_REQUEST;
-
-	// See if it's a cgi file and assign the appropiate cgi and execute
-	if (isCgiScript(_path) > ERRORS) return BAD_REQUEST;
-	if (_cgiCommand != "") return cgiSetup();
-	StatusCode code;
 
 	switch (contentType(_headers["Content-Type"]))
 	{
@@ -212,6 +205,7 @@ StatusCode	request::setUpPost()
 	
 	if (code != FINISHED)
 		return code;
+
 	_body = "<html><body><h1>Upload successful!</h1></body></html>";
 
 	return OK;
@@ -227,7 +221,7 @@ StatusCode request::handleMultipart()
 
 	size_t boundaryStart = p + 9;
 	if (boundaryStart >= contentType.size())
-		return BAD_REQUEST; // malformed header
+		return BAD_REQUEST;	// Malformed header
 
 	std::string boundary = "--" + contentType.substr(boundaryStart);
 
@@ -265,52 +259,6 @@ StatusCode request::handleMultipart()
 	return FINISHED;
 }
 
-
-//StatusCode myPost::handleMultipart()
-//{
-//	std::string contentType = _headers["Content-Type"];
-//	size_t p = contentType.find("boundary=");
-//	if (p == std::string::npos)
-//		return BAD_REQUEST;
-//
-//	size_t boundaryStart = p + 9;
-//	if (boundaryStart >= contentType.size())
-//		return BAD_REQUEST; // malformed header
-//
-//	std::string boundary = "--" + contentType.substr(boundaryStart);
-//
-//	size_t start = _body.find(boundary);
-//	if (start == std::string::npos)
-//		return BAD_REQUEST;
-//	start += boundary.size() + 2;
-//
-//	while (start < _body.size())
-//	{
-//		size_t next = _body.find(boundary, start);
-//		bool last = false;
-//		if (next == std::string::npos)
-//		{
-//			next = _body.find(boundary + "--", start);
-//			if (next == std::string::npos)
-//				next = _body.size();
-//			last = true;
-//		}
-//
-//		if (next < start)
-//			return BAD_REQUEST;
-//
-//		if (last)
-//			break;
-//		std::string part = _body.substr(start, next - start);
-//		if (part.find("filename=") != std::string::npos)
-//			saveFile(part, &_location);
-//		else
-//			saveForm(part, &_location);
-//
-//		start = next + boundary.size();
-//	}
-//	return FINISHED;
-//}
 
 
 /*

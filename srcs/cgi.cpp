@@ -13,7 +13,7 @@ StatusCode request::isCgiScript(std::string filename)
         _cgiCommand = "";
 	else
     	_cgiCommand = it->second;
-	return OK;
+	return FINISHED;
 }
 
 static bool	getAbsolutePath(std::string &path)
@@ -24,7 +24,6 @@ static bool	getAbsolutePath(std::string &path)
 	path = std::string(absPath);
 	return true;
 }
-
 
 std::vector<char *> buildArgv(const std::string &command, const std::string &path)
 {
@@ -104,23 +103,6 @@ static void sendChunk(int fd, const std::string &data)
 	write(fd, chunk.str().c_str(), chunk.str().size());
 }
 
-static StatusCode	myRead(int fd, std::string& _buffer)
-{
-	char buffer[BUFFER];
-
-	int len = read(fd, buffer, sizeof(buffer));
-
-	if (len < 0)
-		return READ_ERROR;
-
-	if (len == 0)
-		return CLIENT_DISCONECTED;
-
-	_buffer.append(buffer, len);
- 
-	return REPEAT;
-}
-
 StatusCode request::cgi()
 {
 	StatusCode code = myRead(_infile, _buffer); // Koldo a metido el _buffer
@@ -169,7 +151,7 @@ StatusCode request::cgiSetup()
 {
 	int outPipe[2];
 	if (pipe(outPipe) == -1)
-		return (INTERNAL_SERVER_ERROR);
+		return INTERNAL_SERVER_ERROR;
 
 	int inPipe[2];
 	if (_method == "POST" && pipe(inPipe) == -1)
@@ -177,7 +159,7 @@ StatusCode request::cgiSetup()
 		close(outPipe[0]);
 		close(outPipe[1]);
 		std::cerr << "CGI post inpipe failed" << std::endl;
-		return (INTERNAL_SERVER_ERROR);
+		return INTERNAL_SERVER_ERROR;
 	}
 
 	_cgiChild = fork();
@@ -191,7 +173,7 @@ StatusCode request::cgiSetup()
 			close(inPipe[1]);
 		}
 		std::cerr << "CGI fork failed" << std::endl;
-		return (INTERNAL_SERVER_ERROR);
+		return INTERNAL_SERVER_ERROR;
 	}
 
 	if (!getAbsolutePath(_path)) return INTERNAL_SERVER_ERROR;
@@ -208,5 +190,6 @@ StatusCode request::cgiSetup()
 	_infile = outPipe[0];
 	_cgiHeaderCheck = false;
 	_buffer.clear();
-	return FINISHED;
+
+	return CGI;
 }

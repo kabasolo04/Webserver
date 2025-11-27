@@ -2,50 +2,67 @@
 
 #include "WebServer.hpp"
 
+#include <sys/time.h>
+
 #define BUFFER 1024
 
+#define OFF			0
+#define ON			1
 #define CASCADE_OFF	0
 #define CASCADE_ON	1
+#define TIMEOUT_OFF	0
+#define TIMEOUT_ON	1
 
 enum Nodes
 {
 	ONE,
 	TWO,
 	THREE,
-	FOUR
+	FOUR,
+	FIVE
 };
 
 enum StatusCode
 {
-//-------------------- FLAGS
 	REPEAT,
 	FINISHED,
 	END,
-	STATUS,
-//-------------------- ERRORS
 	RESPONSE,
 	CGI,
 	AUTOINDEX,
 	OK						= 200,
-	ERRORS,
 	NO_CONTENT				= 204,
 	FOUND					= 302,
 	BAD_REQUEST				= 400,
 	FORBIDEN				= 403,
 	NOT_FOUND				= 404,
 	METHOD_NOT_ALLOWED		= 405,
+	REQUEST_TIMEOUT			= 408,
 	PAYLOAD_TOO_LARGE		= 413,
 	UNSUPPORTED_MEDIA_TYPE	= 415,
 	INTERNAL_SERVER_ERROR	= 500,
 	NOT_IMPLEMENTED			= 501,
 	GATEWAY_TIMEOUT			= 504,
-	LOL						= 999,
-	BIG_ERRORS,
 	READ_ERROR,
 	CLIENT_DISCONECTED
 };
 
+//enum Status
+//{
+//	REPEAT,
+//	FINISHED,
+//	END,
+//	STATUS_CODE
+//};
+
 class request;
+
+struct nodeData
+{
+	Nodes	currentNode;
+	bool	cascade;
+	bool	timeout;
+};
 
 struct nodeHandler
 {
@@ -77,9 +94,9 @@ class request
 	
 		Nodes								_currentFunction;
 		Nodes								_currentRead;
-		Nodes								_currentSetUp;
 		Nodes								_currentResponse;
-		StatusCode							_code;
+
+		struct timeval						_last_activity;
 		
 		//void		printHeaders();
 
@@ -96,15 +113,15 @@ class request
 
 		StatusCode	setUpMethod();
 //---------------------------------------------------------------------------//
-		StatusCode	readAndSend();
+		StatusCode	readResponse();
 		StatusCode	autoindex();
 		StatusCode	cgi();
 
 		StatusCode	response();
 //---------------------------------------------------------------------------//
-		StatusCode	execNode(Nodes& current, const nodeHandler nodes[], int mode);
+		StatusCode	execNode(nodeData& data, const nodeHandler nodes[]);
+//		StatusCode	execNode(Nodes& current, const nodeHandler nodes[], int mode);
 //---------------------------------------------------------------------------//
-
 
 		StatusCode					cgiSetup();
 		StatusCode					isCgiScript(std::string filename);
@@ -112,12 +129,16 @@ class request
 		bool						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
 		std::vector<std::string>	build_env();
 
-		void						setQuery();
-		StatusCode 					handleMultipart();
+		void		setQuery();
+		StatusCode 	handleMultipart();
 
-		void 		setUpResponse();
 		void		end();
 		StatusCode	endNode();
+
+		StatusCode	myRead(int fd, std::string& _buffer);
+		std::string handleError(StatusCode code);
+		std::string handleOk();
+		void		setUpResponse(StatusCode code);
 		
 	public:
 		request(int fd, serverConfig& server);
@@ -125,9 +146,9 @@ class request
 		request& operator = (const request& other);
 		virtual ~request();
 
-		const std::string& getContentType() const;
-		const std::string& getBody() const;
-		const std::string& getMethod() const;
+		const std::string&	getContentType()	const;
+		const std::string&	getBody()			const;
+		const std::string&	getMethod()			const;
 
 		void	exec();
 };
