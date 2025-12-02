@@ -22,7 +22,6 @@ struct data
 class location
 {
 	private:
-
 		struct								_data;
 
 		std::string							_path;

@@ -32,22 +32,84 @@ static bool	is_file(const std::string &path)
 	return S_ISREG(info.st_mode); // true if regular file
 }
 
-//static std::string	getMimeType(const std::string &path)
-//{
-//	size_t dot = path.find_last_of('.');
-//	if (dot == std::string::npos) return "application/octet-stream";
-//	std::string ext = path.substr(dot + 1);
-//
-//	if (ext == "html" || ext == "htm") return "text/html";
-//	if (ext == "css") return "text/css";
-//	if (ext == "js") return "application/javascript";
-//	if (ext == "png") return "image/png";
-//	if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
-//	if (ext == "gif") return "image/gif";
-//	if (ext == "json") return "application/json";
-//
-//	return "application/octet-stream";
-//}
+std::string getMimeType(const std::string &path)
+{
+	// Extract extension
+	std::string ext;
+	size_t pos = path.find_last_of('.');
+	if (pos != std::string::npos)
+		ext = path.substr(pos + 1);
+
+	// Lowercase extension safely
+	for (size_t i = 0; i < ext.size(); ++i)
+		ext[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(ext[i])));
+
+	// MIME lookup table
+	static const std::map<std::string, std::string> mime;
+	// We must initialize it in a function-local static block in C++98
+	if (mime.empty())
+	{
+		// non-const reference via const_cast (C++98 trick)
+		std::map<std::string, std::string> &m = const_cast<std::map<std::string, std::string>&>(mime);
+		
+		m["jpg"] =  "image/jpeg";
+		m["jpeg"] = "image/jpeg";
+		m["png"] =  "image/png";
+		m["gif"] =  "image/gif";
+		m["bmp"] =  "image/bmp";
+		m["svg"] =  "image/svg+xml";
+
+		m["html"] = "text/html";
+		m["htm"]  = "text/html";
+		m["php"]  = "text/html";
+		m["css"]  = "text/css";
+		m["js"]   = "application/javascript";
+		m["txt"]  = "text/plain";
+		m["md"]   = "text/plain";
+		m["ini"]  = "text/plain";
+		m["log"]  = "text/plain";
+
+		m["c"]    = "text/x-c";
+		m["cpp"]  = "text/x-c";
+		m["h"]    = "text/plain";
+
+		m["pdf"]  = "application/pdf";
+		m["doc"]  = "application/msword";
+		m["docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+		m["xls"]  = "application/vnd.ms-excel";
+		m["xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+		m["ppt"]  = "application/vnd.ms-powerpoint";
+
+		m["zip"]  = "application/zip";
+		m["rar"]  = "application/vnd.rar";
+		m["tar"]  = "application/x-tar";
+		m["gz"]   = "application/gzip";
+		m["7z"]   = "application/x-7z-compressed";
+
+		m["mp3"]  = "audio/mpeg";
+		m["wav"]  = "audio/wav";
+		m["flac"] = "audio/flac";
+		m["aac"]  = "audio/aac";
+
+		m["mp4"]  = "video/mp4";
+		m["avi"]  = "video/x-msvideo";
+		m["mkv"]  = "video/x-matroska";
+		m["mov"]  = "video/quicktime";
+	}
+
+	// Look up extension
+	std::map<std::string, std::string>::const_iterator it = mime.find(ext);
+	if (it != mime.end())
+		return it->second;
+
+	// Unknown, but file exists → binary
+	std::ifstream test(path.c_str());
+	if (test.good())
+		return "application/octet-stream";
+
+	// Not found
+	return "";
+}
 
 static StatusCode saveFile(const std::string &part, location *loc)
 {
@@ -60,7 +122,6 @@ static StatusCode saveFile(const std::string &part, location *loc)
 	// Trim trailing CRLF
 	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
 		content.erase(content.size() - 2);
-
 	// Extract filename
 	size_t fnPos = headers.find("filename");
 	if (fnPos != std::string::npos)
@@ -115,11 +176,6 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 // GET                                                                       //
 //---------------------------------------------------------------------------//
 
-void	generateAutoIndex()
-{
-	std::cout << "AUTOINDEEEX" << std::endl;
-}
-
 StatusCode	request::setUpGet()
 {
 	std::ifstream	file;
@@ -137,13 +193,9 @@ StatusCode	request::setUpGet()
 	}
 
 	if (!is_file(_path))
-	{
-		if (!_location.isAutoindex())
-			return NOT_FOUND;
-		else
-			return AUTOINDEX;
-	}
+		return NOT_FOUND;
 
+	_contentType = getMimeType(_path);
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
 		return NOT_FOUND;
@@ -212,8 +264,9 @@ StatusCode	request::setUpPost()
 }
 
 
-StatusCode request::handleMultipart()
+/* StatusCode request::handleMultipart()
 {
+	printHeaders();
 	std::string contentType = _headers["content-type"];
 	size_t p = contentType.find("boundary=");
 	if (p == std::string::npos)
@@ -258,8 +311,50 @@ StatusCode request::handleMultipart()
 	}
 	return FINISHED;
 }
+ */
 
+StatusCode request::handleMultipart()
+{
+	std::string contentType = _headers["Content-Type"];
+	size_t p = contentType.find("boundary=");
+	if (p == std::string::npos)
+		return BAD_REQUEST;
 
+	size_t boundaryStart = p + 9;
+	if (boundaryStart >= contentType.size())
+		return BAD_REQUEST; // malformed header
+
+	std::string boundary = "--" + contentType.substr(boundaryStart);
+	size_t start = _body.find(boundary);
+	if (start == std::string::npos)
+		return BAD_REQUEST;
+	start += boundary.size() + 2;
+	while (start < _body.size())
+	{
+		size_t next = _body.find(boundary, start);
+		bool last = false;
+		if (next == std::string::npos)
+		{
+			next = _body.find(boundary + "--", start);
+			if (next == std::string::npos)
+				next = _body.size();
+			last = true;
+		}
+		if (next < start)
+			return BAD_REQUEST;
+
+		if (last)
+			break;
+		std::string part = _body.substr(start, next - start);
+		if (part.find("filename=") != std::string::npos)
+			saveFile(part, &_location);
+		else
+			saveForm(part, &_location);
+
+		start = next + boundary.size();
+	}
+	return FINISHED;
+}
 
 /*
 bool myPost::chunkedCheck()

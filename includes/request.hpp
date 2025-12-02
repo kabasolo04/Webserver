@@ -91,14 +91,19 @@ class request
 		
 		location							_location;
 		size_t								_contentLength;
+
+		StatusCode							_code;
 	
 		Nodes								_currentFunction;
 		Nodes								_currentRead;
 		Nodes								_currentResponse;
 
 		struct timeval						_last_activity;
+
+		std::string							_responseHeader;
+		std::string							_responseBody;
 		
-		//void		printHeaders();
+		void		printHeaders();
 
 //---------------------------------------------------------------------------//
 		StatusCode	setUpRequestLine();
@@ -135,10 +140,9 @@ class request
 		void		end();
 		StatusCode	endNode();
 
-		StatusCode	myRead(int fd, std::string& _buffer);
-		std::string handleError(StatusCode code);
-		std::string handleOk();
-		void		setUpResponse(StatusCode code);
+		void	handleError(StatusCode code);
+		void	handleOk();
+		void	setUpResponse(StatusCode code);
 		
 	public:
 		request(int fd, serverConfig& server);

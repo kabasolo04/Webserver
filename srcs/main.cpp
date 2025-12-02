@@ -23,7 +23,7 @@ void myAccept(int fd, serverConfig& server)
 				std::cout << "Error: Accept | main.cpp - myAccept()" << std::endl;
 			break;
 		}
-		std::cout << "New Request" << std::endl;
+		//std::cout << "New Request" << std::endl;
 		
 		requestHandler::addReq(clientFd, server);
 	}

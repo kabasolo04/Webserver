@@ -79,14 +79,14 @@ location& location::operator=(const location& other)
 
 location::~location() {}
 
-void	location::setRoot(TOKEN_IT& it, TOKEN_IT& end)			{ _root = *it;												it++;	(void)end;}
-void	location::setIndex(TOKEN_IT& it, TOKEN_IT& end)			{ _index = *it;												it++;	(void)end;}
-void	location::setAutoindex(TOKEN_IT& it, TOKEN_IT& end)		{ _autoindex = (*it == "on" || *it == "1");					it++;	(void)end;}
-void	location::setHeaderSize(TOKEN_IT& it, TOKEN_IT& end)	{ _headerSize = static_cast<size_t>(atoi((*it).c_str()));	it++;	(void)end;}
-void	location::setBodySize(TOKEN_IT& it, TOKEN_IT& end)		{ _bodySize = static_cast<size_t>(atoi((*it).c_str()));		it++;	(void)end;}
-void	location::setUploadEnable(TOKEN_IT& it, TOKEN_IT& end)	{ _uploadEnable = (*it == "on" || *it == "1");				it++;	(void)end;}
-void	location::setUploadStore(TOKEN_IT& it, TOKEN_IT& end)	{ _uploadStore = *it;										it++;	(void)end;}
-void	location::setCgiRoot(TOKEN_IT& it, TOKEN_IT& end)		{ _cgiRoot = *it;											it++;	(void)end;}
+void	location::setRoot			(TOKEN_IT& it, TOKEN_IT& end) { _root = *it;											it++;	(void)end;}
+void	location::setIndex			(TOKEN_IT& it, TOKEN_IT& end) { _index = *it;											it++;	(void)end;}
+void	location::setAutoindex		(TOKEN_IT& it, TOKEN_IT& end) { _autoindex = (*it == "on" || *it == "1");				it++;	(void)end;}
+void	location::setHeaderSize		(TOKEN_IT& it, TOKEN_IT& end) { _headerSize = static_cast<size_t>(atoi((*it).c_str()));	it++;	(void)end;}
+void	location::setBodySize		(TOKEN_IT& it, TOKEN_IT& end) { _bodySize = static_cast<size_t>(atoi((*it).c_str()));	it++;	(void)end;}
+void	location::setUploadEnable	(TOKEN_IT& it, TOKEN_IT& end) { _uploadEnable = (*it == "on" || *it == "1");			it++;	(void)end;}
+void	location::setUploadStore	(TOKEN_IT& it, TOKEN_IT& end) { _uploadStore = *it;										it++;	(void)end;}
+void	location::setCgiRoot		(TOKEN_IT& it, TOKEN_IT& end) { _cgiRoot = *it;											it++;	(void)end;}
 
 void	location::addMethods(TOKEN_IT& it, TOKEN_IT& end)	// allow_methods GET POST DELETE;
 {
@@ -116,7 +116,7 @@ void	location::addCgiExtension(TOKEN_IT& it, TOKEN_IT& end)	// cgi_extension .ph
 	if (++it == end)
 		throw std::runtime_error("cgi_extension expects <extension> <binary> | location.cpp | addCgiExtension()");
 
-	_cgiExtensions[ext] = *it;
+	_cgiExtensions[ext] = *it++;
 }
 
 void	location::setPath(const std::string& path)	{ _path = path;}

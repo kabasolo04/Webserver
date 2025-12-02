@@ -95,12 +95,37 @@ void request::execChild(int outPipe[2], int inPipe[2])
 	exit(1);
 }
 
-static void sendChunk(int fd, const std::string &data)
+static StatusCode	myRead(int fd, std::string& _buffer)
 {
-	std::ostringstream chunk;
-	chunk << std::hex << data.size() << "\r\n";
-	chunk << data << "\r\n";
-	write(fd, chunk.str().c_str(), chunk.str().size());
+	char buffer[BUFFER];
+
+	int len = read(fd, buffer, sizeof(buffer));
+
+	if (len < 0)
+		return READ_ERROR;
+
+	if (len == 0)
+		return CLIENT_DISCONECTED;
+
+	_buffer.append(buffer, len);
+ 
+	return REPEAT;
+}
+
+static size_t findHeaderEnd(std::string buf)
+{
+	size_t pos1 = buf.find("\r\n\r\n"); // most common
+	size_t pos2 = buf.find("\n\n");		// python
+	size_t pos3 = buf.find("\r\r");		// extremely rare but valid
+
+	// choose the earliest valid
+	if (pos1 != std::string::npos)
+		return pos1 + 4;
+	else if (pos2 != std::string::npos)
+		return pos2 + 2;
+	else if (pos3 != std::string::npos)
+		return pos3 + 2;
+	return std::string::npos;
 }
 
 StatusCode request::cgi()
@@ -109,32 +134,21 @@ StatusCode request::cgi()
 
 	if (_cgiHeaderCheck == false)
 	{
-		//Strip the headers from the first reads
-		size_t end = _buffer.find("\r\n\r\n");
+		// Strip the headers from the first reads
+		size_t end = findHeaderEnd(_buffer);
 		if (end == std::string::npos)
 			return REPEAT;
-		_buffer.erase(0, end + 4);
+		_buffer.erase(0, end);
 
-		//Tell browser that it is a chunked response
-		std::ostringstream resp;
-		resp << "HTTP/1.1 200 OK\r\n";
-		resp << "Transfer-Encoding: chunked\r\n";
-		resp << "Content-Type: " << _contentType << "\r\n";
-		resp << "\r\n";
-		write(_fd, resp.str().c_str(), resp.str().size());
 		_cgiHeaderCheck = true;
+		return REPEAT;
 	}
-
-	if (code == REPEAT)
-	{
-		sendChunk(_fd, _buffer);
-		_buffer.clear();
-	}
-
+	if (code == READ_ERROR)
+		return INTERNAL_SERVER_ERROR;
 	if (code != CLIENT_DISCONECTED)
 		return REPEAT;
-
-	write(_fd, "0\r\n\r\n", 5);
+	//
+	// write(_fd, "0\r\n\r\n", 5);
 	// 2. IMPORTANT: Do NOT kill the child.
 	// Just wait for it normally.
 	int status = 0;
@@ -143,8 +157,7 @@ StatusCode request::cgi()
 	// 3. If CGI crashed or returned non-zero → error
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 		return INTERNAL_SERVER_ERROR;
-
-	return FINISHED;	// Koldo a cabiao el return de EDN a FINISHED
+	return FINISHED;
 }
 
 StatusCode request::cgiSetup()
@@ -161,7 +174,6 @@ StatusCode request::cgiSetup()
 		std::cerr << "CGI post inpipe failed" << std::endl;
 		return INTERNAL_SERVER_ERROR;
 	}
-
 	_cgiChild = fork();
 	if (_cgiChild == -1)
 	{
@@ -190,6 +202,5 @@ StatusCode request::cgiSetup()
 	_infile = outPipe[0];
 	_cgiHeaderCheck = false;
 	_buffer.clear();
-
 	return CGI;
 }

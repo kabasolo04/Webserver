@@ -7,13 +7,15 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
 
-  * {
+  *
+  {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
 
-  body {
+  body
+  {
     height: 100vh;
     display: flex;
     justify-content: center;
@@ -24,30 +26,35 @@
     overflow: hidden;
   }
 
-  .container {
+  .container
+  {
     text-align: center;
     position: relative;
   }
 
-  .container h1 {
+  .container h1
+  {
     font-size: 12rem;
     animation: float 3s ease-in-out infinite;
     color: #ff6f61;
     text-shadow: 0 0 20px #ff6f61, 0 0 40px #ff6f61, 0 0 60px #ff6f61;
   }
 
-  @keyframes float {
+  @keyframes float
+  {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-20px); }
   }
 
-  .container p {
+  .container p
+  {
     font-size: 1.5rem;
     margin-top: -20px;
     color: #ffffffcc;
   }
 
-  .container a {
+  .container a
+  {
     display: inline-block;
     margin-top: 30px;
     padding: 12px 30px;
@@ -59,24 +66,28 @@
     transition: all 0.3s ease;
   }
 
-  .container a:hover {
+  .container a:hover
+  {
     background: #ff6f61;
     color: #fff;
     box-shadow: 0 0 20px #ff6f61, 0 0 40px #ff6f61;
   }
 
   /* Floating particles background */
-  .particle {
+  .particle
+  {
     position: absolute;
     border-radius: 50%;
     background: rgba(255, 111, 97, 0.5);
     animation: move 10s linear infinite;
   }
 
-  @keyframes move {
+  @keyframes move
+  {
     0% { transform: translateY(100vh) translateX(0); opacity: 1; }
     100% { transform: translateY(-10vh) translateX(50vw); opacity: 0; }
   }
+
 </style>
 </head>
 <body>
@@ -88,7 +99,8 @@
 
 <script>
   // Generate floating particles
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 30; i++)
+  {
     const particle = document.createElement('div');
     particle.className = 'particle';
     particle.style.width = `${Math.random() * 10 + 5}px`;
