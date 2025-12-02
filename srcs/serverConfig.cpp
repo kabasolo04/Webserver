@@ -135,6 +135,10 @@ void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
 		throw std::runtime_error("Argument expected between 'location' and '{' | serverConfig.cpp - setLocation()");
 
 	std::string path = *it;
+
+	//Removes last slashes from the path
+	if (!path.empty() && path[path.size() - 1] == '/')
+    	path = path.substr(0, path.size() - 1);
 	temp.setPath(path);
 
 	if (*++it != "{")
@@ -161,6 +165,8 @@ void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
  	it ++;
 	
 	_locations.push_back(temp);
+	
+	//getLocation(temp.getPath()).print();
 }
 
 serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
@@ -204,7 +210,6 @@ location& serverConfig::getLocation(std::string path)
 	for (size_t i = 0; i < _locations.size(); i++)
 	{
 		const std::string& locPath = _locations[i].getPath();
-
 		if (path.find(locPath) == 0 && locPath.size() > bestLength)
 		{
 			bestLength = locPath.size();
@@ -213,4 +218,33 @@ location& serverConfig::getLocation(std::string path)
 	}
 
 	return *bestMatch;
+}
+
+void serverConfig::printer() const
+{
+	std::cout << "=== SERVER CONFIG ===" << std::endl;
+
+	std::cout << "Server Name: " << _serverName << std::endl;
+
+	// Listen entries
+	std::cout << "Listen entries:" << std::endl;
+	for (size_t i = 0; i < _listen.size(); ++i)
+	{
+		std::cout << "  - " << _listen[i]._host << ":" << _listen[i]._port << std::endl;
+	}
+
+	// Default location
+	std::cout << "\n--- DEFAULT LOCATION ---" << std::endl;
+	_default.print();
+
+	// All other locations
+	std::cout << "\n--- LOCATIONS (" << _locations.size() << ") ---" << std::endl;
+
+	for (size_t i = 0; i < _locations.size(); ++i)
+	{
+		std::cout << "\n[Location " << i << "]" << std::endl;
+		_locations[i].print();
+	}
+
+	std::cout << "\n=========================" << std::endl;
 }

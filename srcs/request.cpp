@@ -13,7 +13,9 @@ request::request(int fd, serverConfig& server):
 	_currentSetUp(ONE),
 	_currentResponse(ONE),
 	_code(OK)
-	{}
+	{
+//		_server->printer();
+	}
 
 request::request(const request& other) { *this = other; }
 
@@ -47,20 +49,22 @@ static std::string getReasonPhrase(StatusCode code)
 {
 	switch (code)
 	{
-		case OK:						return "OK";
-		case NO_CONTENT:				return "No Content";
-		case FOUND:						return "Found";
-		case BAD_REQUEST:				return "Bad Request";
-		case NOT_FOUND:					return "Not Found";
-		case INTERNAL_SERVER_ERROR:		return "Internal Server Error";
-		case FORBIDEN:					return "Forbiden";
-		case METHOD_NOT_ALLOWED:		return "Method Not Allowed";
-		case PAYLOAD_TOO_LARGE: 		return "Payload Too Large";
-		case UNSUPPORTED_MEDIA_TYPE:	return "Unsupported Media Type";
-		case NOT_IMPLEMENTED: 			return "Not Implemented";
-		case GATEWAY_TIMEOUT: 			return "Gateway Timeout";
-		case LOL: 						return "No Fucking Idea Mate";
-		default:						return "Unknown";
+		case OK:								return "OK";
+		case CREATED:							return "Created";
+		case NO_CONTENT:						return "No Content";
+		case FOUND:								return "Found";
+		case BAD_REQUEST:						return "Bad Request";
+		case NOT_FOUND:							return "Not Found";
+		case INTERNAL_SERVER_ERROR:				return "Internal Server Error";
+		case FORBIDEN:							return "Forbiden";
+		case METHOD_NOT_ALLOWED:				return "Method Not Allowed";
+		case PAYLOAD_TOO_LARGE: 				return "Payload Too Large";
+		case UNSUPPORTED_MEDIA_TYPE:			return "Unsupported Media Type";
+		case REQUEST_HEADER_FIELDS_TOO_LARGE:	return "Request Header Fields Too Large";
+		case NOT_IMPLEMENTED: 					return "Not Implemented";
+		case GATEWAY_TIMEOUT: 					return "Gateway Timeout";
+		case LOL: 								return "No Fucking Idea Mate";
+		default:								return "Unknown";
 	}
 }
 
@@ -106,13 +110,16 @@ StatusCode	request::setUpRequestLine()
 
 		_buffer.erase(0, header_end + 1);
 
+		//_server->printer();
 		_location = _server->getLocation(_path);
+
+/* 		if(!_location.methodAllowed(_method))
+			return METHOD_NOT_ALLOWED; */
 
 		if (_path.find(_location.getPath()) == 0)	// In case location path is prefix of target
 			_path = _location.getRoot() + _path.substr(_location.getPath().size());
 		else
 			_path = _location.getRoot() + _path;
-		
 		return FINISHED;
 	}
 	return REPEAT;
@@ -165,13 +172,15 @@ StatusCode request::setUpHeader()
 
 StatusCode	request::setUpBody()
 {
-	if (_buffer.length() >= _contentLength)
+	if (_buffer.length() <= _contentLength)
 	{
 		_body = _buffer;
 		return FINISHED;
 	}
 	if (_buffer.length() >= _location.getBodySize())
+	{
 		return PAYLOAD_TOO_LARGE;
+	}
 	return REPEAT;
 }
 

@@ -40,6 +40,8 @@ class serverConfig
 		location&	getDefaultLocation();
 		location&	getLocation(std::string path);
 		const std::string&	serverName();
+
+		void printer() const;
 };
 
 bool setNonBlocking(int fd);

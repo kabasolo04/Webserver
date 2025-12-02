@@ -76,7 +76,7 @@ static StatusCode saveFile(const std::string &part, location *loc)
 			out.write(content.data(), content.size());
 			out.close();
 			std::cout << "Saved file: " << filename << std::endl;
-			return FINISHED;
+			return CREATED;
 		}
 		if (!out.is_open())
 		{
@@ -107,7 +107,7 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 	out.write(part.data(), part.size());
 	out.close();
 	std::cout << "Saved form file: " << filename << std::endl;
-	return FINISHED;
+	return CREATED;
 }
 
 //---------------------------------------------------------------------------//
@@ -134,7 +134,6 @@ StatusCode	request::setUpGet()
 		else
 			return AUTOINDEX;
 	}
-
 	if (!is_file(_path))
 	{
 		if (!_location.isAutoindex())
@@ -153,6 +152,7 @@ StatusCode	request::setUpGet()
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
 		return NOT_FOUND;
+	std::cout << _path << " was found by getsetup" << std::endl;
 
 	return OK;
 }
