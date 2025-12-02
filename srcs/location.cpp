@@ -7,8 +7,8 @@ location::location():	// Deafult defined vasr
 	_autoindex(0),
 	//errorPages(empty)
 	_requestLineSize(256),
-	_headerSize(8192),
-	_bodySize(0),
+	_headerSize(1024),
+	_bodySize(1048576),
 	_uploadEnable(0),
 	_uploadStore("uploads")
 	//cgiExtensions(empty)
@@ -41,9 +41,9 @@ location::location(const location& _default, int lol):	// Copy constructor for u
 	//methods(empty)
 	_autoindex(0),
 	//errorPages(empty)
-	_requestLineSize(0),
-	_headerSize(0),
-	_bodySize(0),
+	_requestLineSize(_default._requestLineSize),
+	_headerSize(_default._headerSize),
+	_bodySize(_default._bodySize),
 	_uploadEnable(0)
 	//uploadStore(empty)
 	//cgiExtensions(empty)
@@ -182,3 +182,49 @@ const std::string&	location::getUploadStore() const	{ return _uploadStore;	}
 		
 const std::string& 							location::getCgiRoot() const		{ return _cgiRoot;			}
 const std::map<std::string, std::string>&	location::getCgiExtensions() const	{ return _cgiExtensions;	}
+
+
+void location::print() const
+{
+    std::cout << "----- Location Config -----" << std::endl;
+
+    std::cout << "_path: " << _path << std::endl;
+    std::cout << "_root: " << _root << std::endl;
+    std::cout << "_index: " << _index << std::endl;
+
+    std::cout << "_methods: ";
+    for (size_t i = 0; i < _methods.size(); ++i)
+    {
+        std::cout << _methods[i];
+        if (i + 1 < _methods.size())
+            std::cout << ", ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "_autoindex: " << (_autoindex ? "true" : "false") << std::endl;
+
+    std::cout << "_errorPages:" << std::endl;
+    for (std::map<int, std::string>::const_iterator it = _errorPages.begin();
+         it != _errorPages.end(); ++it)
+    {
+        std::cout << "  " << it->first << " -> " << it->second << std::endl;
+    }
+
+    std::cout << "_requestLineSize: " << _requestLineSize << std::endl;
+    std::cout << "_headerSize: " << _headerSize << std::endl;
+    std::cout << "_bodySize: " << _bodySize << std::endl;
+
+    std::cout << "_uploadEnable: " << (_uploadEnable ? "true" : "false") << std::endl;
+    std::cout << "_uploadStore: " << _uploadStore << std::endl;
+
+    std::cout << "_cgiRoot: " << _cgiRoot << std::endl;
+
+    std::cout << "_cgiExtensions:" << std::endl;
+    for (std::map<std::string, std::string>::const_iterator it = _cgiExtensions.begin();
+         it != _cgiExtensions.end(); ++it)
+    {
+        std::cout << "  " << it->first << " -> " << it->second << std::endl;
+    }
+
+    std::cout << "---------------------------" << std::endl;
+}

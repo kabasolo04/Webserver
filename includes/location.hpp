@@ -88,4 +88,6 @@ class location
 		
 		const	std::string& getCgiRoot() const;
 		const	std::map<std::string, std::string>& getCgiExtensions() const;
+		void print() const;
+
 };
