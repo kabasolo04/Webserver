@@ -64,7 +64,7 @@ class request;
 
 struct nodeData
 {
-	Nodes	currentNode;
+	Nodes&	currentNode;
 	bool	cascade;
 	bool	timeout;
 };
@@ -134,10 +134,10 @@ class request
 //---------------------------------------------------------------------------//
 
 		StatusCode					cgiSetup();
-		StatusCode					isCgiScript(std::string filename);
+		bool		 				isCgiScript(std::string filename);
 		void						execChild(int outPipe[2], int inPipe[2]);
 		bool						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
-		std::vector<std::string>	build_env();
+		std::vector<std::string>	build_env(std::string path);
 
 		void		setQuery();
 		StatusCode 	handleMultipart();

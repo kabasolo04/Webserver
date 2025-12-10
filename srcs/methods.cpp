@@ -54,6 +54,7 @@ std::string getMimeType(const std::string &path)
 		
 		m["jpg"] =  "image/jpeg";
 		m["jpeg"] = "image/jpeg";
+		m["JPG"] = "image/jpeg";
 		m["png"] =  "image/png";
 		m["gif"] =  "image/gif";
 		m["bmp"] =  "image/bmp";
@@ -180,7 +181,7 @@ StatusCode	request::setUpGet()
 {
 	std::ifstream	file;
 
-	std::cout << "IM GET" << std::endl;
+	//std::cout << "IM GET" << std::endl;
 
 	setQuery();	// Strip the query from the path to separate them
 
@@ -193,14 +194,14 @@ StatusCode	request::setUpGet()
 	}
 	if (!is_file(_path))
 		return NOT_FOUND;
-
 	_contentType = getMimeType(_path);
 	_infile = open(_path.c_str(), O_RDONLY);
 	if (_infile < 0)
 		return NOT_FOUND;
-	std::cout << _path << " was found by getsetup" << std::endl;
+	
+	/* std::cout << _path << " was found by getsetup" << std::endl;
 
-	std::cout << "FILE FOUND AND OPENED" << std::endl;
+	std::cout << "FILE FOUND AND OPENED" << std::endl; */
 	
 	return OK;
 }

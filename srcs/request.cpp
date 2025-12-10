@@ -208,15 +208,20 @@ StatusCode request::setUpHeader()
 
 StatusCode	request::setUpBody()
 {
-	if (_buffer.length() <= _contentLength)
+	//printHeaders();
+	std::cout << "-----------------------------------------------------------" << std::endl;
+	std::cout << "Fd: " << _fd << std::endl;
+	std::cout << "buffer.length() = " << _buffer.length() << std::endl;
+	std::cout << "_contentLength = " << _contentLength << std::endl;
+	std::cout << "_location.getBodySize() = " << _location.getBodySize() << std::endl;
+
+	if (_buffer.length() >= _contentLength)
 	{
 		_body = _buffer;
 		return FINISHED;
 	}
-	if (_buffer.length() >= _location.getBodySize())
-	{
-		return PAYLOAD_TOO_LARGE;
-	}
+/* 	if (_contentLength > _location.getBodySize())
+		return PAYLOAD_TOO_LARGE; */
 	return REPEAT;
 }
 
@@ -231,8 +236,11 @@ StatusCode request::readRequest()
 
 	StatusCode code = myRead(_fd, _buffer);
 
-	if (code >= READ_ERROR)
+	if (code == READ_ERROR)
 		return code;
+
+	if (code == CLIENT_DISCONECTED)
+		return REPEAT;
 
 	nodeData data = {_currentRead, CASCADE_ON, TIMEOUT_ON};
 
@@ -269,9 +277,13 @@ StatusCode	request::setUpMethod()
 		{FOUR,	&request::endNode	}
 	};
 
-	nodeData data = {whichMethod(_method), CASCADE_OFF, TIMEOUT_OFF};
+	printHeaders();
 
-	return execNode(data, nodes);
+	setQuery();
+	if (isCgiScript(_path))
+		return CGI;
+
+	return (this->*(nodes[whichMethod(_method)].handler))();
 }
 
 StatusCode request::readResponse()
@@ -417,7 +429,7 @@ StatusCode	request::response()
 				<< "Content-Length: " << _responseBody.size() + 4 << "\r\n\r\n"
 				<< _responseBody << "\r\n\r\n";
 
-			std::cout << "FINISIHNG" << std::endl;
+			//std::cout << "FINISIHNG" << std::endl;
 
 			(void)send(_fd, response.str().c_str(), response.str().size(), MSG_NOSIGNAL);
 		}
@@ -563,7 +575,7 @@ void	request::setUpResponse(StatusCode code)
 			break;
 		case AUTOINDEX:				_currentResponse = TWO;
 			break;
-		case CGI:					_currentResponse = THREE;
+		case CGI:					cgiSetup(); _currentResponse = THREE;
 			break;
 		case READ_ERROR:			std::cout << "Read Error" << std::endl; handleError(INTERNAL_SERVER_ERROR);
 			break;
