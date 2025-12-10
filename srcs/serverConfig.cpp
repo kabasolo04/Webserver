@@ -129,16 +129,18 @@ void	serverConfig::setServerName(TOKEN_IT& it)
 
 void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
 {
-	location	temp(_default, 1);
-
 	if (*it == "{")
 		throw std::runtime_error("Argument expected between 'location' and '{' | serverConfig.cpp - setLocation()");
 
 	std::string path = *it;
 
+<<<<<<< HEAD
 	//Removes last slashes from the path
 	if (!path.empty() && path[path.size() - 1] == '/')
     	path = path.substr(0, path.size() - 1);
+=======
+	location	temp(_default);	
+>>>>>>> d51382b (writte errors better and debuging)
 	temp.setPath(path);
 
 	if (*++it != "{")
@@ -168,6 +170,7 @@ void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
 	
 	//getLocation(temp.getPath()).print();
 }
+
 
 serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 {
@@ -202,6 +205,65 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 
 	return *this;
 }
+
+/*
+
+serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
+{
+	TOKEN_IT begin = it;
+
+	while (begin != end && *begin != "}")
+	{
+		std::string key = *begin;
+
+		if (++begin == end || *begin == "}")
+			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
+		
+		if (key == "listen") setListen(begin);
+
+		else if (key == "server_name") setServerName(begin);
+
+		else _default.handleDirective(key, begin, end);
+
+		if (begin == end)
+			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
+
+		if (*begin != ";")
+			throw std::runtime_error("';' expected after '" + *begin  + "' | serverConfig.cpp - parseServer()");
+	}
+
+	while (it != end && *it != "}")
+	{
+		std::string key = *it;
+
+		if (++it == end || *it == "}")
+			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
+
+		if (key == "location")
+		{	
+			
+			setLocation(it, end);	// CAUTION Ends in }, and not in ;
+		}
+
+		if (it == end)
+			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
+
+		if (*it != ";")
+			throw std::runtime_error("';' expected after '" + *it  + "' | serverConfig.cpp - parseServer()");
+		it ++;	// Jump the ';'
+	}
+
+	if (it == end || *it != "}")
+		throw std::runtime_error("Missing closing '}' for server block | serverConfig.cpp - parseServer()");
+
+	location	temp(_default);
+	temp.setPath("/");
+	_locations.push_back(temp);
+
+	return *this;
+}
+
+*/
 
 location& serverConfig::getDefaultLocation() { return (_default); }
 

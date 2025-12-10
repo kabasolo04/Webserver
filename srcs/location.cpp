@@ -35,6 +35,7 @@ location::location(const location& _default):	// Copy constructor for containers
 	{}
 
 location::location(const location& _default, int lol):	// Copy constructor for us
+<<<<<<< HEAD
 	//_path(_default._path),
 	_root(_default._root),
 	_index(_default._index),
@@ -44,6 +45,17 @@ location::location(const location& _default, int lol):	// Copy constructor for u
 	_requestLineSize(_default._requestLineSize),
 	_headerSize(_default._headerSize),
 	_bodySize(_default._bodySize),
+=======
+	_path				(_default._path				),
+	_root				(_default._root				),
+	_index				(_default._index			),
+	_methods			(_default._methods			),
+	_autoindex			(_default._autoindex		),
+	_errorPages			(_default._errorPages		),
+	_requestLineSize	(_default._requestLineSize	),
+	_headerSize			(_default._headerSize		),
+	_bodySize			(_default._bodySize			),
+>>>>>>> d51382b (writte errors better and debuging)
 	_uploadEnable(0)
 	//uploadStore(empty)
 	//cgiExtensions(empty)

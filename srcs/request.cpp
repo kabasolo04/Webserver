@@ -3,7 +3,7 @@
 request::request(int fd, serverConfig& server):
 	_server(&server),
 	_fd(fd),
-	_infile(0),
+	_infile(-1),
 	_body(""),
 	_contentType("text/html"),
 	_cgiChild(0),
@@ -71,7 +71,7 @@ static std::string getReasonPhrase(StatusCode code)
 
 StatusCode	request::endNode()	{ return END; }
 
-#define TIMEOUT_MS 5000
+#define TIMEOUT_MS 500000
 
 static bool timeoutCheck(struct timeval *last_activity, long timeout_ms)
 {
@@ -120,7 +120,7 @@ static void	epollMood(int fd, uint32_t mood)
 
 static StatusCode	myRead(int fd, std::string& _buffer)
 {
-	char buffer[1024];
+	char buffer[BUFFER];
 
 	int len = read(fd, buffer, sizeof(buffer));
 
@@ -276,6 +276,9 @@ StatusCode	request::setUpMethod()
 
 StatusCode request::readResponse()
 {
+	if (_infile < 0)
+		return FINISHED;
+
     StatusCode status = myRead(_infile, _responseBody);
 
     if (status == READ_ERROR)
@@ -411,17 +414,17 @@ StatusCode	request::response()
 		{
 			std::stringstream response;
 			response
-				<< _protocol << " " << _code << " " << getReasonPhrase(OK).c_str() << "\r\n" 
+				<< _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n" 
 				<< "Content-Type: " << _contentType << "\r\n"
 				<< "Connection: close\r\n"
 				<< "Content-Length: " << _responseBody.size() + 4 << "\r\n\r\n"
 				<< _responseBody << "\r\n\r\n";
 
-			std::cout << "FINISIHNG" << std::endl;
+			//std::cout << "FINISIHNG" << std::endl;
 
 			(void)send(_fd, response.str().c_str(), response.str().size(), MSG_NOSIGNAL);
 		}
-		return END;
+		return FINISHED;
 	}
 	return code;
 }
@@ -504,50 +507,26 @@ static std::string createErrorBody(StatusCode code)
 
 void request::handleError(StatusCode code)
 {
-	if (_infile > 0)
+	_currentResponse = ONE;
+	_code = code;
+
+	_responseBody = "";
+
+	if (_infile >= 0)
 	{
 		close(_infile);
-		_infile = 0;
+		_infile = -1;
 	}
-
-	std::stringstream response;
-	response << _protocol << " " << code << " " << getReasonPhrase(code).c_str() << "\r\n" << "Content-Type: " << _contentType << "\r\n";
 	
 	std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(code);
 	if (it != _location.getErrorPages().end())
 	{
 		_infile = open(it->second.c_str(), O_RDONLY);
-		if (_infile > 0)
-		{
-			_responseHeader = response.str();
-			_currentResponse = ONE;
+		if (_infile >= 0)
 			return ;
-		}
 	}
 
-	_currentResponse = FOUR;
-
-	std::string temp = createErrorBody(code);
-	
-	response << "Content-Length: " << temp.length() + 4 << "\r\n" << "\r\n" << temp << "\r\n" << "\r\n" ;
-
-	write(_fd, response.str().c_str(), response.str().size());
-}
-
-void request::handleOk()
-{
-	std::stringstream response;
-	
-	if (_infile <= 0)
-	{
-		response << _protocol << " " << OK << " " << getReasonPhrase(OK).c_str() << "\r\n" << "Content-Type: text/html" << "\r\n";
-		_currentResponse = FOUR;
-		response << "Content-Length: " << _body.size() + 4 << "\r\n" << "\r\n";
-		response << _body << "\r\n" << "\r\n";
-		write(_fd, response.str().c_str(), response.str().size());
-		end();
-	}
-	_currentResponse = ONE;
+	_responseBody = createErrorBody(code);
 }
 
 void	request::setUpResponse(StatusCode code)
@@ -557,9 +536,9 @@ void	request::setUpResponse(StatusCode code)
 
 	switch (code)
 	{
-		case CLIENT_DISCONECTED:	std::cout << "Client Disconnected" << std::endl;	_currentResponse = FOUR;
+		case CLIENT_DISCONECTED:	std::cout << "Client Disconnected" << std::endl; end();
 			break;
-		case OK:					handleOk();
+		case OK:					_currentResponse = ONE;
 			break;
 		case AUTOINDEX:				_currentResponse = TWO;
 			break;
@@ -634,7 +613,7 @@ void	request::end()
 		waitpid(_cgiChild, NULL, 0);
 		_cgiChild = 0;
 	}
-	if (_infile > 0)
+	if (_infile >= 0)
 		close(_infile);
 
 	requestHandler::delReq(_fd);
@@ -653,11 +632,11 @@ void request::exec()
 
 	StatusCode code = execNode(data, nodes);
 
-	if (code >= RESPONSE)
-		setUpResponse(code);
-
 	if(code == FINISHED)
 		end();
+
+	if (code >= RESPONSE)
+		setUpResponse(code);
 }
 
 void	request::printHeaders()

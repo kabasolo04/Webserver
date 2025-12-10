@@ -180,7 +180,7 @@ StatusCode	request::setUpGet()
 {
 	std::ifstream	file;
 
-	std::cout << "IM GET" << std::endl;
+//	std::cout << "IM GET" << std::endl;
 
 	setQuery();	// Strip the query from the path to separate them
 
@@ -258,7 +258,7 @@ StatusCode	request::setUpPost()
 	if (code != FINISHED)
 		return code;
 
-	_body = "<html><body><h1>Upload successful!</h1></body></html>";
+	_responseBody = "<html><body><h1>Upload successful!</h1></body></html>";
 
 	return OK;
 }
@@ -398,7 +398,7 @@ StatusCode	request::setUpDel()
 
 	if (std::remove(_path.c_str()) == 0)
 	{
-		_body = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
+		_responseBody = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
 		return OK;
 	}
 

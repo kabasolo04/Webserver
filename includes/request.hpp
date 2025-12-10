@@ -4,7 +4,7 @@
 
 #include <sys/time.h>
 
-#define BUFFER 1024
+#define BUFFER 4096
 
 #define OFF			0
 #define ON			1
@@ -142,11 +142,9 @@ class request
 		void		setQuery();
 		StatusCode 	handleMultipart();
 
-		void		end();
 		StatusCode	endNode();
 
 		void	handleError(StatusCode code);
-		void	handleOk();
 		void	setUpResponse(StatusCode code);
 		
 	public:
@@ -160,4 +158,5 @@ class request
 		const std::string&	getMethod()			const;
 
 		void	exec();
+		void	end();
 };

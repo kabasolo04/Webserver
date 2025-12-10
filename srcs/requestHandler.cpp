@@ -21,7 +21,7 @@ void	requestHandler::execReq(int fd)
 void	requestHandler::addReq(int fd, serverConfig& server)
 {
 	if(_requests.find(fd) != _requests.end())
-		delReq(fd);
+		_requests[fd]->end();
 
 	if (setNonBlocking(fd) == false)
 	{
