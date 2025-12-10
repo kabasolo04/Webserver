@@ -1,19 +1,19 @@
 #include "WebServer.hpp"
 
-StatusCode request::isCgiScript(std::string filename)
+bool request::isCgiScript(std::string filename)
 {
 	size_t pos = filename.find_last_of(".");
 
 	if (pos == std::string::npos)
-		return BAD_REQUEST;
+		return 0;
 	std::string extension = filename.substr(pos + 1);
 	std::map<std::string, std::string> ext = _location.getCgiExtensions();
 	std::map<std::string, std::string>::iterator it = ext.find(extension);
-    if (it == ext.end())
-        _cgiCommand = "";
+	if (it == ext.end())
+		_cgiCommand = "";
 	else
-    	_cgiCommand = it->second;
-	return FINISHED;
+		_cgiCommand = it->second;
+	return (_cgiCommand != "");
 }
 
 static bool	getAbsolutePath(std::string &path)
@@ -41,16 +41,16 @@ std::vector<char *> buildArgv(const std::string &command, const std::string &pat
 	return argv;
 }
 
-std::vector<std::string> request::build_env()
+std::vector<std::string> request::build_env(std::string path)
 {
 	std::vector<std::string> env_str;
 	env_str.push_back("REQUEST_METHOD=" + _method);
 	env_str.push_back("SCRIPT_FILENAME=" + _path);
 	env_str.push_back("GATEWAY_INTERFACE=CGI/1.1");
-	env_str.push_back("SERVER_PROTOCOL=HTTP/1.1");
+	env_str.push_back("SERVER_PROTOCOL=" + _protocol);
+	env_str.push_back("REDIRECT_STATUS=200");
 	if (_method == "GET")
 		env_str.push_back("QUERY_STRING=" + _query);
-	env_str.push_back("REDIRECT_STATUS=200");
 	if (_method == "POST")
 	{
 		std::ostringstream ss;
@@ -62,7 +62,7 @@ std::vector<std::string> request::build_env()
 	}
 	else
 		env_str.push_back("CONTENT_LENGTH=0");
-	env_str.push_back("PATH=/usr/bin:/bin");
+	env_str.push_back("PATH=" + path);
 	return (env_str);
 }
 
@@ -78,38 +78,40 @@ void request::execChild(int outPipe[2], int inPipe[2])
 		dup2(inPipe[0], STDIN_FILENO);
 		close(inPipe[0]);
 	}
+	
+	// Chdir so relative pahts work
+	std::string dir = _path.substr(0, _path.find_last_of('/'));
+	chdir(dir.c_str());
 
 	std::vector<char *> argv = buildArgv(_cgiCommand, _path);
-	std::vector<std::string> env_str = build_env();
+	std::vector<std::string> env_str = build_env(dir);
 	std::vector<char *> envp;
 	for (size_t i = 0; i < env_str.size(); ++i)
 		envp.push_back(const_cast<char *>(env_str[i].c_str()));
 	envp.push_back(NULL);
 
-	// Chdir so relative pahts work
-	std::string dir = _path.substr(0, _path.find_last_of('/'));
-	chdir(dir.c_str());
 
 	execve(argv[0], argv.data(), envp.data());
 	std::cerr << "execve failed: " << strerror(errno) << " (errno = " << errno << ")" << std::endl;
 	exit(1);
 }
 
-static StatusCode	myRead(int fd, std::string& _buffer)
+static StatusCode myRead(int fd, std::string &_buffer)
 {
-	char buffer[BUFFER];
+	char buf[BUFFER];
 
-	int len = read(fd, buffer, sizeof(buffer));
-
-	if (len < 0)
+	ssize_t n = read(fd, buf, sizeof(buf));
+	if (n < 0)
+	{
+		if (errno == EINTR)
+			return REPEAT;
 		return READ_ERROR;
+	}
+	if (n == 0)
+		return OK; // EOF: child is done writing
 
-	if (len == 0)
-		return CLIENT_DISCONECTED;
-
-	_buffer.append(buffer, len);
- 
-	return REPEAT;
+	_buffer.append(buf, n);
+	return REPEAT; // more data may still arrive
 }
 
 static size_t findHeaderEnd(std::string buf)
@@ -130,22 +132,22 @@ static size_t findHeaderEnd(std::string buf)
 
 StatusCode request::cgi()
 {
-	StatusCode code = myRead(_infile, _buffer); // Koldo a metido el _buffer
+	StatusCode code = myRead(_infile, _responseBody); // Koldo a metido el _buffer
 
 	if (_cgiHeaderCheck == false)
 	{
 		// Strip the headers from the first reads
-		size_t end = findHeaderEnd(_buffer);
+		size_t end = findHeaderEnd(_responseBody);
 		if (end == std::string::npos)
 			return REPEAT;
-		_buffer.erase(0, end);
+		_responseBody.erase(0, end);
 
 		_cgiHeaderCheck = true;
 		return REPEAT;
 	}
 	if (code == READ_ERROR)
 		return INTERNAL_SERVER_ERROR;
-	if (code != CLIENT_DISCONECTED)
+	if (code == REPEAT)
 		return REPEAT;
 	//
 	// write(_fd, "0\r\n\r\n", 5);
@@ -201,6 +203,6 @@ StatusCode request::cgiSetup()
 	}
 	_infile = outPipe[0];
 	_cgiHeaderCheck = false;
-	_buffer.clear();
+	_responseBody.clear();
 	return CGI;
 }

@@ -134,13 +134,10 @@ void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
 
 	std::string path = *it;
 
-<<<<<<< HEAD
-	//Removes last slashes from the path
 	if (!path.empty() && path[path.size() - 1] == '/')
     	path = path.substr(0, path.size() - 1);
-=======
+
 	location	temp(_default);	
->>>>>>> d51382b (writte errors better and debuging)
 	temp.setPath(path);
 
 	if (*++it != "{")
