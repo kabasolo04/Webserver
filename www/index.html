@@ -2,107 +2,131 @@
 <html lang="en">
 
 <head>
-	<link rel="icon" type="image/png" href="42.jpeg">
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Webserver</title>
-	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-	<script type="text/javascript">
-		function redirectme() {
-			let selectedPage = document.getElementById("paginaSelect").value;
-			if (selectedPage) {
-				window.location.href = selectedPage;
-			}
-		}
-	</script>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-		integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-	<style>
-		.container-flex {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			height: 100vh;
-		}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webserver Tests</title>
 
-		h4 {
-			text-align: center;
-			color: white;
-			padding-bottom: 15px;
-		}
+    <link rel="icon" type="image/png" href="42.jpeg">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-		.logo {
-			width: 140px;
-			height: 90px;
-			border-radius: 5px;
-			margin-left: 10px;
-		}
-	</style>
+    <style>
+        body {
+            background-color: #f3f4f6;
+        }
+
+        .navbar {
+            background-color: #2c2f33 !important;
+        }
+
+        .logo {
+            width: 130px;
+            height: 80px;
+            border-radius: 5px;
+        }
+
+        .test-card {
+            border-radius: 12px;
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .test-card h5 {
+            font-weight: 600;
+        }
+
+        .big-photo {
+            width: 100%;
+            max-width: 650px;
+            border-radius: 10px;
+            margin-top: 25px;
+        }
+
+        .section-title {
+            font-weight: 700;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
 
 <body>
-	<nav class="navbar navbar-expand-lg navbar-dark bg-light">
-		<img class="logo" src="42.jpeg" alt="logo">
-	</nav>
-	<a href="./cgi.php?cgifakintest=kreizi">
-		<p>php GET test</p>
-	</a>
 
-	<!-- PHP POST test: simple form that sends POST to cgi.php -->
-	<form action="/cgi.php" method="POST">
-		<input type="hidden" name="koldo" value="bomboclat">
-		<button type="submit">php POST test (form)</button>
-	</form>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark px-3">
+		<a href="42.jpeg">
+			<img class="logo" src="42.jpeg" alt="logo">
+		</a>
+    </nav>
 
-	<!-- Python GET test: link with query string -->
-	<a href="/cgi_test.py?name=Bob">
-		<p>python GET test</p>
-	</a>
+    <div class="container py-4">
 
-	<!-- Existing python POST test (kept) -->
-	<form action="/cgi_test.py" method="POST">
-		<label for="name">Name:</label>
-		<input type="text" id="name" name="name" value="Alice"><br><br>
+        <h2 class="text-center mb-4">Webserver Test Panel</h2>
 
-		<label for="age">Age:</label>
-		<input type="number" id="age" name="age" value="22"><br><br>
+        <!-- CGI TEST CARDS -->
+        <div class="row justify-content-center">
 
-		<button type="submit">Send POST python</button>
-	</form>
-			<img width="45%" src="DSC04113.JPG">
+            <!-- PHP Tests -->
+            <div class="col-md-6 test-card">
+                <h5 class="section-title">PHP CGI Tests</h5>
 
-	<div class="container-flex">
-		<div class="bg-dark rounded w-25 h-50 col-md-6 d-flex justify-content-center align-items-center">
-			<form id="form1" action="back.php" method="post">
-				<h4>This is our webservers website!!</h4>
-				<div class="mb-3">
-					<select id="paginaSelect" onchange="redirectme()" class="form-control">
-						<option value="">Selecciona un formulario</option>
-						<option value="index.html">Form 1</option>
-						<option value="form2.html">Form 2</option>
-						<option value="form3.html">Form 3</option>
-						<option value="form4.html">Form 4</option>
-					</select>
-					<br>
-					<select id="nombre" name="nombre" class="form-control" required>
-					</select>
-					<br>
-					<select id="apellidos" name="apellidos" class="form-control">
-					</select>
-					</br>
-					<input type="text" class="form-control" name="new_model" required autocomplete="off"
-						placeholder="Introduce algo">
-					</br>
-					<input type="text" class="form-control" name="png" required autocomplete="off"
-						placeholder="Introduce el nombre del PNG">
-				</div>
-				<button type="submit" name="signin" class="btn btn-primary">Enviar</button>
-			</form>
-			<a href="./form">
-				<h4>CREATE A POST REQUEST</h4>
-			</a>
-		</div>
-	</div>
+                <a href="./cgi.php?cgifakintest=kreizi" class="btn btn-primary mb-2 w-100">
+                    PHP GET Test
+                </a>
+
+                <form action="/cgi.php" method="POST">
+                    <input type="hidden" name="koldo" value="bomboclat">
+                    <button class="btn btn-secondary w-100" type="submit">
+                        PHP POST Test
+                    </button>
+                </form>
+            </div>
+
+            <!-- Python Tests -->
+            <div class="col-md-6 test-card">
+                <h5 class="section-title">Python CGI Tests</h5>
+
+                <a href="/cgi_test.py?name=Bob" class="btn btn-primary mb-2 w-100">
+                    Python GET Test
+                </a>
+
+                <form action="/cgi_test.py" method="POST">
+                    <div class="mb-2">
+                        <label for="name" class="form-label">Name:</label>
+                        <input class="form-control" id="name" name="name" value="Alice">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="age" class="form-label">Age:</label>
+                        <input class="form-control" type="number" id="age" name="age" value="22">
+                    </div>
+
+                    <button type="submit" class="btn btn-secondary w-100">
+                        Python POST Test
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- CREATE POST REQUEST BOX -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-6 text-center">
+                <a href="./form" class="btn btn-dark btn-lg w-100 py-3">
+                    CREATE A POST REQUEST
+                </a>
+            </div>
+        </div>
+
+        <!-- IMAGE -->
+        <div class="row justify-content-center">
+            <div class="col-auto">
+                <img class="big-photo" src="DSC04113.JPG">
+            </div>
+        </div>
+
+    </div>
+
 </body>
-
 </html>

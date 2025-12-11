@@ -224,8 +224,8 @@ StatusCode	request::setUpBody()
 		_body = _buffer;
 		return FINISHED;
 	}
-/* 	if (_contentLength > _location.getBodySize())
-		return PAYLOAD_TOO_LARGE; */
+	if (_contentLength > _location.getBodySize() || _buffer.length() > _location.getBodySize())
+		return PAYLOAD_TOO_LARGE;
 	return REPEAT;
 }
 
