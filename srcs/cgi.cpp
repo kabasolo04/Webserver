@@ -29,7 +29,7 @@ std::vector<char *> buildArgv(const std::string &command, const std::string &pat
 {
 	std::vector<char *> argv;
 	argv.push_back(const_cast<char *>(command.c_str()));
-	if (command.find("php-cgi") != std::string::npos)
+	if (command.find("php") != std::string::npos)
 		argv.push_back(const_cast<char *>("-f"));
 	else if (command.find("python") != std::string::npos)
 	{
@@ -162,11 +162,11 @@ StatusCode request::cgi()
 	return FINISHED;
 }
 
-StatusCode request::cgiSetup()
+bool request::cgiSetup()
 {
 	int outPipe[2];
 	if (pipe(outPipe) == -1)
-		return INTERNAL_SERVER_ERROR;
+		return false;
 
 	int inPipe[2];
 	if (_method == "POST" && pipe(inPipe) == -1)
@@ -174,7 +174,7 @@ StatusCode request::cgiSetup()
 		close(outPipe[0]);
 		close(outPipe[1]);
 		std::cerr << "CGI post inpipe failed" << std::endl;
-		return INTERNAL_SERVER_ERROR;
+		return false;
 	}
 	_cgiChild = fork();
 	if (_cgiChild == -1)
@@ -187,10 +187,9 @@ StatusCode request::cgiSetup()
 			close(inPipe[1]);
 		}
 		std::cerr << "CGI fork failed" << std::endl;
-		return INTERNAL_SERVER_ERROR;
+		return false;
 	}
-
-	if (!getAbsolutePath(_path)) return INTERNAL_SERVER_ERROR;
+	if (!getAbsolutePath(_path)) return false;
 
 	if (_cgiChild == 0) execChild(outPipe, inPipe);
 
@@ -204,5 +203,5 @@ StatusCode request::cgiSetup()
 	_infile = outPipe[0];
 	_cgiHeaderCheck = false;
 	_responseBody.clear();
-	return CGI;
+	return true;
 }

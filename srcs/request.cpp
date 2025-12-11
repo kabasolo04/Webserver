@@ -71,20 +71,20 @@ static std::string getReasonPhrase(StatusCode code)
 
 StatusCode	request::endNode()	{ return END; }
 
-#define TIMEOUT_MS 500000
+//#define TIMEOUT_MS 500000
 
-static bool timeoutCheck(struct timeval *last_activity, long timeout_ms)
-{
-    struct timeval now;
-    gettimeofday(&now, NULL);
-
-    long seconds  = now.tv_sec  - last_activity->tv_sec;
-    long usec     = now.tv_usec - last_activity->tv_usec;
-
-    long elapsed_ms = seconds * 1000 + usec / 1000;
-
-    return (elapsed_ms > timeout_ms);
-}
+//static bool timeoutCheck(struct timeval *last_activity, long timeout_ms)
+//{
+//	struct timeval now;
+//	gettimeofday(&now, NULL);
+//
+//	long seconds  = now.tv_sec  - last_activity->tv_sec;
+//	long usec     = now.tv_usec - last_activity->tv_usec;
+//
+//	long elapsed_ms = seconds * 1000 + usec / 1000;
+//
+//	return (elapsed_ms > timeout_ms);
+//}
 
 StatusCode request::execNode(nodeData& data, const nodeHandler nodes[])
 {
@@ -92,21 +92,24 @@ StatusCode request::execNode(nodeData& data, const nodeHandler nodes[])
 
 	while (1)
 	{
-		if (data.timeout == ON && timeoutCheck(&_last_activity, TIMEOUT_MS))
-			return REQUEST_TIMEOUT;
+		//if (data.timeout == ON && timeoutCheck(&_last_activity, TIMEOUT_MS))
+		//	return REQUEST_TIMEOUT;
 
 		code = (this->*(nodes[data.currentNode].handler))();
 
 		if (code == END)
 			return FINISHED;
 
-		if (code != FINISHED || data.cascade == OFF)
+		if (code != FINISHED)
 			return code;
-		
-		if (data.timeout == ON)
-			gettimeofday(&_last_activity, NULL);	// Reset the timeout per action finished
-	
+
 		data.currentNode = static_cast<Nodes>(static_cast<int>(data.currentNode) + 1);
+		
+		//if (data.timeout == ON)
+		//	gettimeofday(&_last_activity, NULL);	// Reset the timeout per action finished
+		
+		if (data.cascade == OFF)
+			return code;
 	}
 }
 
@@ -209,11 +212,12 @@ StatusCode request::setUpHeader()
 StatusCode	request::setUpBody()
 {
 	//printHeaders();
-	std::cout << "-----------------------------------------------------------" << std::endl;
-	std::cout << "Fd: " << _fd << std::endl;
-	std::cout << "buffer.length() = " << _buffer.length() << std::endl;
-	std::cout << "_contentLength = " << _contentLength << std::endl;
-	std::cout << "_location.getBodySize() = " << _location.getBodySize() << std::endl;
+	//std::cout << "-----------------------------------------------------------" << std::endl;
+	//std::cout << "Path: " << _path << std::endl;
+	//std::cout << "Fd: " << _fd << std::endl;
+	//std::cout << "buffer.length() = " << _buffer.length() << std::endl;
+	//std::cout << "_contentLength = " << _contentLength << std::endl;
+	//std::cout << "_location.getBodySize() = " << _location.getBodySize() << std::endl;
 
 	if (_buffer.length() >= _contentLength)
 	{
@@ -231,7 +235,8 @@ StatusCode request::readRequest()
 		{ONE,	&request::setUpRequestLine	},
 		{TWO,	&request::setUpHeader		},
 		{THREE,	&request::setUpBody			},
-		{FOUR,	&request::endNode			}
+		{FOUR,	&request::setUpMethod		},
+		{FIVE,	&request::endNode			}
 	};
 
 	StatusCode code = myRead(_fd, _buffer);
@@ -261,11 +266,11 @@ static Nodes whichMethod(std::string& method)
 		{"DELETE",	THREE}
 	};
 
-    for (size_t i = 0; i < sizeof(methods) / sizeof(methods[0]); ++i)
-        if (methods[i].method == method)
-            return methods[i].node;
+	for (size_t i = 0; i < sizeof(methods) / sizeof(methods[0]); ++i)
+		if (methods[i].method == method)
+			return methods[i].node;
 
-    return FOUR;
+	return FOUR;
 }
 
 StatusCode	request::setUpMethod()
@@ -277,7 +282,7 @@ StatusCode	request::setUpMethod()
 		{FOUR,	&request::endNode	}
 	};
 
-	printHeaders();
+//	printHeaders();
 
 	setQuery();
 	if (isCgiScript(_path))
@@ -291,125 +296,127 @@ StatusCode request::readResponse()
 	if (_infile < 0)
 		return FINISHED;
 
-    StatusCode status = myRead(_infile, _responseBody);
+	std::string temp;
 
-    if (status == READ_ERROR)
-        return status;
-	
-    if (status == CLIENT_DISCONECTED)
-        return FINISHED;
+	StatusCode status = myRead(_infile, temp);
 
-    return REPEAT;
+	if (temp.size() == 0)
+		return FINISHED;
+
+	if (status == REPEAT)
+		_responseBody.append(temp);
+
+	return status;
 }
 
 StatusCode request::autoindex()
 {
-    std::string newpath;
+	std::string newpath;
 
-    int i = -1;
-    while (_path[++i])
-        if (!(_path[i] == '/' && _path[i + 1] == '/'))
-            newpath += _path[i];
+	int i = -1;
+	while (_path[++i])
+		if (!(_path[i] == '/' && _path[i + 1] == '/'))
+			newpath += _path[i];
 
-    DIR *dir = opendir(newpath.c_str());
-    if (!dir)
-        return INTERNAL_SERVER_ERROR;
+	DIR *dir = opendir(newpath.c_str());
+	if (!dir)
+		return INTERNAL_SERVER_ERROR;
 
-    std::ostringstream html;
+	std::ostringstream html;
 
-    html
-    << "<!DOCTYPE html><html><head><meta charset=\"UTF-8\">"
-    << "<title>🔥 Index of " << newpath << " 🔥</title>"
+	html
+	<< "<!DOCTYPE html><html><head><meta charset=\"UTF-8\">"
+	<< "<title>🔥 Index of " << newpath << " 🔥</title>"
 
-    // ====== STYLE ======
-    << "<style>"
-    "body {"
-        "margin:0;"
-        "font-family: Arial, sans-serif;"
-        "background: #000;"
-        "color: #fff;"
-        "text-shadow: 0 0 5px #f30;"
-        "animation: pulse 3s infinite;"
-    "}"
-    "h1 {"
-        "text-align:center;"
-        "padding:20px;"
-        "font-size:40px;"
-        "color:#ff4500;"
-        "text-shadow: 0 0 15px #ff0000, 0 0 5px #ff8c00;"
-    "}"
-    "pre {"
-        "max-width:900px;"
-        "margin:auto;"
-        "padding:20px;"
-        "background:rgba(0,0,0,0.6);"
-        "border:solid 1px #f30;"
-        "border-radius:10px;"
-        "box-shadow:0 0 20px #f30;"
-    "}"
-    "a {"
-        "color:#ffb380;"
-        "font-size:20px;"
-        "text-decoration:none;"
-    "}"
-    "a:hover {"
-        "color:#fff;"
-        "text-shadow: 0 0 10px #ff4500;"
-    "}"
-    "@keyframes pulse {"
-        "0% { background-color: #000; }"
-        "50% { background-color: #200; }"
-        "100% { background-color: #000; }"
-    "}"
-    // Mini llamas arriba
-    ".firebar {"
-        "text-align:center;"
-        "font-size:25px;"
-        "margin:0;"
-        "padding:10px 0;"
-        "animation: flame 1s infinite;"
-    "}"
-    "@keyframes flame {"
-        "0% { text-shadow: 0 0 5px #f00; }"
-        "50% { text-shadow: 0 0 15px #ff8000; }"
-        "100% { text-shadow: 0 0 5px #f00; }"
-    "}"
-    "</style>"
-    << "</head><body>"
+	// ====== STYLE ======
+	<< "<style>"
+	"body {"
+		"margin:0;"
+		"font-family: Arial, sans-serif;"
+		"background: #000;"
+		"color: #fff;"
+		"text-shadow: 0 0 5px #f30;"
+		"animation: pulse 3s infinite;"
+	"}"
+	"h1 {"
+		"text-align:center;"
+		"padding:20px;"
+		"font-size:40px;"
+		"color:#ff4500;"
+		"text-shadow: 0 0 15px #ff0000, 0 0 5px #ff8c00;"
+	"}"
+	"pre {"
+		"max-width:900px;"
+		"margin:auto;"
+		"padding:20px;"
+		"background:rgba(0,0,0,0.6);"
+		"border:solid 1px #f30;"
+		"border-radius:10px;"
+		"box-shadow:0 0 20px #f30;"
+	"}"
+	"a {"
+		"color:#ffb380;"
+		"font-size:20px;"
+		"text-decoration:none;"
+	"}"
+	"a:hover {"
+		"color:#fff;"
+		"text-shadow: 0 0 10px #ff4500;"
+	"}"
+	"@keyframes pulse {"
+		"0% { background-color: #000; }"
+		"50% { background-color: #200; }"
+		"100% { background-color: #000; }"
+	"}"
+	// Mini llamas arriba
+	".firebar {"
+		"text-align:center;"
+		"font-size:25px;"
+		"margin:0;"
+		"padding:10px 0;"
+		"animation: flame 1s infinite;"
+	"}"
+	"@keyframes flame {"
+		"0% { text-shadow: 0 0 5px #f00; }"
+		"50% { text-shadow: 0 0 15px #ff8000; }"
+		"100% { text-shadow: 0 0 5px #f00; }"
+	"}"
+	"</style>"
+	<< "</head><body>"
 
-    // ====== FIRE BAR ======
-    << "<div class=\"firebar\">🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥</div>"
+	// ====== FIRE BAR ======
+	<< "<div class=\"firebar\">🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥</div>"
 
-    << "<h1>🔥 Index of " << newpath << " 🔥</h1>"
-    << "<pre>";
+	<< "<h1>🔥 Index of " << newpath << " 🔥</h1>"
+	<< "<pre>";
 
-    if (newpath != "./")
-        html << "<a href=\"..\">⟵ Back</a>\n";
+	if (newpath != "./")
+		html << "<a href=\"..\">⟵ Back</a>\n";
 
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != (void*)0)
-    {
-        std::string name = entry->d_name;
-        std::string fullPath = newpath + "/" + name;
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != (void*)0)
+	{
+		std::string name = entry->d_name;
+		std::string fullPath = newpath + "/" + name;
 
-        if (name[0] == '.')
-            continue;
+		if (name[0] == '.')
+			continue;
 
-        struct stat st;
-        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
-            name += "/";
+		struct stat st;
+		if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+			name += "/";
 
-        html << "<a href=\"" << name << "\">" << name << "</a>\n";
-    }
+		html << "<a href=\"" << name << "\">" << name << "</a>\n";
+	}
 
-    html << "</pre></body></html>";
+	html << "</pre></body></html>";
 
-    _responseBody = html.str();
-    closedir(dir);
-    return FINISHED;
+	_responseBody = html.str();
+	closedir(dir);
+	return FINISHED;
 }
 
-StatusCode	request::response()
+StatusCode	request::fillResponse() //14221312
 {
 	static nodeHandler nodes[] = {
 		{ONE,	&request::readResponse	},
@@ -420,32 +427,43 @@ StatusCode	request::response()
 
 	StatusCode code = (this->*(nodes[_currentResponse].handler))();
 
-	if (code != REPEAT)
+	if (code == FINISHED)
 	{
-		if (code == FINISHED)
-		{
-			std::stringstream response;
-			response
-				<< _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n" 
-				<< "Content-Type: " << _contentType << "\r\n"
-				<< "Connection: close\r\n"
-				<< "Content-Length: " << _responseBody.size() + 4 << "\r\n\r\n"
-				<< _responseBody << "\r\n\r\n";
-
-			//std::cout << "FINISIHNG" << std::endl;
-
-			(void)send(_fd, response.str().c_str(), response.str().size(), MSG_NOSIGNAL);
-		}
+		std::stringstream response;
+		response << "Content-Length: " << _responseBody.size() << "\r\n\r\n";
+		_responseHeader.append(response.str());
+//		std::cout << _responseBody << std::endl;
 		return FINISHED;
 	}
 	return code;
+}
+
+StatusCode request::sendResponse()
+{
+	if (!_responseHeader.empty())
+	{
+		ssize_t sent = write(_fd, _responseHeader.c_str(), _responseHeader.size());
+		if (sent == -1)
+			return FINISHED;
+		_responseHeader.erase(0, sent);
+		return REPEAT;
+	}
+	if (!_responseBody.empty())
+	{
+		ssize_t sent = write(_fd, _responseBody.c_str(), _responseBody.size());
+		if (sent == -1)
+			return FINISHED;
+		_responseBody.erase(0, sent);
+		return REPEAT;
+	}
+	return FINISHED;
 }
 
 static std::string createErrorBody(StatusCode code)
 {
 	std::stringstream temp;
 	temp <<
-	"<!doctype html>\n"
+		"<!doctype html>\n"
 		"<html lang=\"en\">\n"
 		"<head>\n"
 		"  <meta charset=\"utf-8\" />\n"
@@ -529,7 +547,7 @@ void request::handleError(StatusCode code)
 		close(_infile);
 		_infile = -1;
 	}
-	
+
 	std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(code);
 	if (it != _location.getErrorPages().end())
 	{
@@ -537,14 +555,23 @@ void request::handleError(StatusCode code)
 		if (_infile >= 0)
 			return ;
 	}
-
 	_responseBody = createErrorBody(code);
 }
 
 void	request::setUpResponse(StatusCode code)
 {
 	epollMood(_fd, EPOLLOUT);
-	_currentFunction = THREE;
+	_currentFunction = TWO;
+
+	std::stringstream response;
+	response
+		<< _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n" 
+		<< "Content-Type: " << _contentType << "\r\n"
+		<< "Connection: close\r\n";
+
+	_responseHeader = response.str();
+		
+//	std::cout << _responseHeader << std::endl;
 
 	switch (code)
 	{
@@ -554,7 +581,7 @@ void	request::setUpResponse(StatusCode code)
 			break;
 		case AUTOINDEX:				_currentResponse = TWO;
 			break;
-		case CGI:					cgiSetup(); _currentResponse = THREE;
+		case CGI:					if (cgiSetup()) _currentResponse = THREE; else handleError(INTERNAL_SERVER_ERROR);
 			break;
 		case READ_ERROR:			std::cout << "Read Error" << std::endl; handleError(INTERNAL_SERVER_ERROR);
 			break;
@@ -635,16 +662,16 @@ void request::exec()
 {
 	static nodeHandler nodes[] = {
 		{ONE, 	&request::readRequest	},
-		{TWO,	&request::setUpMethod	},
-		{THREE,	&request::response		},
+		{TWO,	&request::fillResponse	},
+		{THREE,	&request::sendResponse	},
 		{FOUR,	&request::endNode		}
 	};
 
-	nodeData data = {_currentFunction, CASCADE_ON, TIMEOUT_ON};
+	nodeData data = {_currentFunction, CASCADE_OFF, TIMEOUT_ON};
 
 	StatusCode code = execNode(data, nodes);
 
-	if(code == FINISHED)
+	if(code == FINISHED && _currentFunction == FOUR)
 		end();
 
 	if (code >= RESPONSE)

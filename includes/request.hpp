@@ -127,13 +127,14 @@ class request
 		StatusCode	autoindex();
 		StatusCode	cgi();
 
-		StatusCode	response();
+		StatusCode	fillResponse();
+		StatusCode	sendResponse();
 //---------------------------------------------------------------------------//
 		StatusCode	execNode(nodeData& data, const nodeHandler nodes[]);
 //		StatusCode	execNode(Nodes& current, const nodeHandler nodes[], int mode);
 //---------------------------------------------------------------------------//
 
-		StatusCode					cgiSetup();
+		bool						cgiSetup();
 		bool		 				isCgiScript(std::string filename);
 		void						execChild(int outPipe[2], int inPipe[2]);
 		bool						handleParent(pid_t child, int outPipe[2], int inPipe[2]);
