@@ -29,7 +29,7 @@ std::vector<char *> buildArgv(const std::string &command, const std::string &pat
 {
 	std::vector<char *> argv;
 	argv.push_back(const_cast<char *>(command.c_str()));
-	if (command.find("php-cgi") != std::string::npos)
+	if (command.find("php") != std::string::npos)
 		argv.push_back(const_cast<char *>("-f"));
 	else if (command.find("python") != std::string::npos)
 	{
@@ -93,7 +93,7 @@ void request::execChild(int outPipe[2], int inPipe[2])
 
 	execve(argv[0], argv.data(), envp.data());
 	std::cerr << "execve failed: " << strerror(errno) << " (errno = " << errno << ")" << std::endl;
-	exit(1);
+	_exit(127);
 }
 
 static StatusCode myRead(int fd, std::string &_buffer)
@@ -101,17 +101,21 @@ static StatusCode myRead(int fd, std::string &_buffer)
 	char buf[BUFFER];
 
 	ssize_t n = read(fd, buf, sizeof(buf));
+	if (n > 0) {
+		_buffer.append(buf, n);
+		return REPEAT;         // more data may come
+	}
 	if (n < 0)
 	{
-		if (errno == EINTR)
-			return REPEAT;
-		return READ_ERROR;
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return REPEAT;     // no data available yet
+        if (errno == EINTR)
+            return REPEAT;     // interrupted, retry
+        return READ_ERROR; 
 	}
 	if (n == 0)
 		return OK; // EOF: child is done writing
-
-	_buffer.append(buf, n);
-	return REPEAT; // more data may still arrive
+	return REPEAT;
 }
 
 static size_t findHeaderEnd(std::string buf)
@@ -134,32 +138,42 @@ StatusCode request::cgi()
 {
 	StatusCode code = myRead(_infile, _responseBody); // Koldo a metido el _buffer
 
-	if (_cgiHeaderCheck == false)
+	if (code == OK)
 	{
-		// Strip the headers from the first reads
-		size_t end = findHeaderEnd(_responseBody);
-		if (end == std::string::npos)
-			return REPEAT;
-		_responseBody.erase(0, end);
+		// child is DONE
+		close(_infile);             // <-- prevent CGI from being called again
+		_infile = -1;
+		_cgiHeaderCheck = false;    // <-- reset state
+		// do NOT reuse old _responseBody
+		int status;
+		if (waitpid(_cgiChild, &status, 0) == -1)
+			return INTERNAL_SERVER_ERROR;
 
-		_cgiHeaderCheck = true;
-		return REPEAT;
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		{
+			std::cout << "error 500" << std::endl;
+			return INTERNAL_SERVER_ERROR;
+		}
+
+		return FINISHED;
 	}
 	if (code == READ_ERROR)
-		return INTERNAL_SERVER_ERROR;
-	if (code == REPEAT)
-		return REPEAT;
-	//
-	// write(_fd, "0\r\n\r\n", 5);
-	// 2. IMPORTANT: Do NOT kill the child.
-	// Just wait for it normally.
-	int status = 0;
-	waitpid(_cgiChild, &status, 0);
+		return INTERNAL_SERVER_ERROR; 
 
-	// 3. If CGI crashed or returned non-zero → error
-	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-		return INTERNAL_SERVER_ERROR;
-	return FINISHED;
+	if (code == REPEAT)
+	{
+		if (_cgiHeaderCheck == false)
+		{
+			size_t end = findHeaderEnd(_responseBody);
+			if (end == std::string::npos)
+				return REPEAT;
+
+			_responseBody.erase(0, end);
+			_cgiHeaderCheck = true;
+		}
+		return REPEAT;
+	}
+	return INTERNAL_SERVER_ERROR;
 }
 
 StatusCode request::cgiSetup()
@@ -176,6 +190,8 @@ StatusCode request::cgiSetup()
 		std::cerr << "CGI post inpipe failed" << std::endl;
 		return INTERNAL_SERVER_ERROR;
 	}
+		if (!setNonBlocking(outPipe[0]) || !setNonBlocking(outPipe[1]))
+			return (close(_fd), INTERNAL_SERVER_ERROR);
 	_cgiChild = fork();
 	if (_cgiChild == -1)
 	{

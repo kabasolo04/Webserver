@@ -209,19 +209,20 @@ StatusCode request::setUpHeader()
 StatusCode	request::setUpBody()
 {
 	//printHeaders();
-	std::cout << "-----------------------------------------------------------" << std::endl;
+	/* std::cout << "-----------------------------------------------------------" << std::endl;
 	std::cout << "Fd: " << _fd << std::endl;
 	std::cout << "buffer.length() = " << _buffer.length() << std::endl;
 	std::cout << "_contentLength = " << _contentLength << std::endl;
 	std::cout << "_location.getBodySize() = " << _location.getBodySize() << std::endl;
-
-	if (_buffer.length() >= _contentLength)
+ */
+std::size_t len = _buffer.length();
+	if (len == _contentLength)
 	{
 		_body = _buffer;
 		return FINISHED;
 	}
-/* 	if (_contentLength > _location.getBodySize())
-		return PAYLOAD_TOO_LARGE; */
+	if (_contentLength > _location.getBodySize() || len > _location.getBodySize())
+		return PAYLOAD_TOO_LARGE;
 	return REPEAT;
 }
 
@@ -276,8 +277,6 @@ StatusCode	request::setUpMethod()
 		{THREE,	&request::setUpDel	},
 		{FOUR,	&request::endNode	}
 	};
-
-	printHeaders();
 
 	setQuery();
 	if (isCgiScript(_path))
@@ -436,7 +435,6 @@ StatusCode	request::response()
 
 			(void)send(_fd, response.str().c_str(), response.str().size(), MSG_NOSIGNAL);
 		}
-		return FINISHED;
 	}
 	return code;
 }
