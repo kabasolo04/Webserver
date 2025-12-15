@@ -182,13 +182,12 @@ StatusCode	request::setUpGet()
 	std::ifstream	file;
 
 	setQuery();	// Strip the query from the path to separate them
-
 	if (is_directory(_path))
 	{
-		if (!_location.isAutoindex())
-			_path += "/" + _location.getIndex();
-		else
+		std::string tmp = _path + "/" + _location.getIndex();
+		if (!is_file(tmp) && _location.isAutoindex())
 			return AUTOINDEX;
+		_path = tmp;
 	}
 	if (!is_file(_path))
 		return NOT_FOUND;

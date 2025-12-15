@@ -398,6 +398,8 @@ StatusCode request::autoindex()
 	{
 		std::string name = entry->d_name;
 		std::string fullPath = newpath + "/" + name;
+		std::string printPath = fullPath.substr(6);
+
 
 		if (name[0] == '.')
 			continue;
@@ -406,7 +408,7 @@ StatusCode request::autoindex()
 		if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
 			name += "/";
 
-		html << "<a href=\"" << name << "\">" << name << "</a>\n";
+		html << "<a href=\"/" << printPath << "\">" << name << "</a>\n";
 	}
 
 	html << "</pre></body></html>";
