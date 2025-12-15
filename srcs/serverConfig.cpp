@@ -127,159 +127,120 @@ void	serverConfig::setServerName(TOKEN_IT& it)
 	it ++;
 }
 
-void	serverConfig::setLocation(TOKEN_IT& it, TOKEN_IT& end)
+static location parseLocation(TOKEN_IT it, TOKEN_IT end, location& _default)
 {
-	if (*it == "{")
-		throw std::runtime_error("Argument expected between 'location' and '{' | serverConfig.cpp - setLocation()");
+	if (it == end)
+		throw std::runtime_error("Missing location path");
 
 	std::string path = *it;
 
-	if (!path.empty() && path[path.size() - 1] == '/')
-    	path = path.substr(0, path.size() - 1);
+	if (!path.empty() && path != "/" && path[path.size() - 1] == '/')
+		path = path.substr(0, path.size() - 1);
 
-	location	temp(_default);	
+	location temp(_default);
 	temp.setPath(path);
 
-	if (*++it != "{")
-		throw std::runtime_error("Argument expected after 'location" + path + "' and '{' | serverConfig.cpp - setLocation()");
+	if (++it == end || *it != "{")
+		throw std::runtime_error("Expected '{' after location " + path);
 
 	while (++it != end && *it != "}")
 	{
 		std::string key = *it;
 
 		if (++it == end)
-			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
-
+			throw std::runtime_error("Missing value for directive '" + key + "' in location " + path);
+	
 		temp.handleDirective(key, it, end);
 
-		if (it == end)
-			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
-		if (*it != ";")
-			throw std::runtime_error("';' expected after '" + key + "' | serverConfig.cpp - setLocation()");
+		if (it == end || *it != ";")
+			throw std::runtime_error("';' expected after '" + key + "' in location " + path);
 	}
-
-	if (it == end || *it != "}")
-		throw std::runtime_error("Missing closing '}' for location block | serverConfig.cpp - setLocation()");
-
- 	it ++;
-	
-	_locations.push_back(temp);
-	
-	//getLocation(temp.getPath()).print();
+	return temp;
 }
 
+static void skipBlock(TOKEN_IT& it, TOKEN_IT end)
+{
+	if (it == end || *it == "{")
+		throw std::runtime_error("Expected location name");
+
+	if (++it == end || *it != "{")
+		throw std::runtime_error("Expected '}'");
+
+	int depth = 1;
+	++it;
+
+	while (it != end && depth > 0)
+	{
+		if (*it == "{") depth++;
+		else if (*it == "}") depth--;
+		++it;
+	}
+
+	if (depth != 0)
+		throw std::runtime_error("Unclosed block");
+}
 
 serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 {
+	std::vector<std::pair<TOKEN_IT, TOKEN_IT > > locationITs;
+
 	while (it != end && *it != "}")
 	{
-		std::string key = *it;
-
-		if (++it == end || *it == "}")
-			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
-
-		if (key == "location") setLocation(it, end);	// CAUTION Ends in }, and not in ;
-
-		else if (key == "listen") setListen(it);
-
-		else if (key == "server_name") setServerName(it);
-
-		else _default.handleDirective(key, it, end);
+		std::string key = *it++;
 
 		if (it == end)
-			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
-
-		if (key != "location")
-		{
-			if (*it != ";")
-				throw std::runtime_error("';' expected after '" + *it  + "' | serverConfig.cpp - parseServer()");
-			it ++;	// Jump the ';'
-		}
-	}
-
-	if (it == end || *it != "}")
-		throw std::runtime_error("Missing closing '}' for server block | serverConfig.cpp - parseServer()");
-
-	return *this;
-}
-
-/*
-
-serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
-{
-	TOKEN_IT begin = it;
-
-	while (begin != end && *begin != "}")
-	{
-		std::string key = *begin;
-
-		if (++begin == end || *begin == "}")
-			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
-		
-		if (key == "listen") setListen(begin);
-
-		else if (key == "server_name") setServerName(begin);
-
-		else _default.handleDirective(key, begin, end);
-
-		if (begin == end)
-			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
-
-		if (*begin != ";")
-			throw std::runtime_error("';' expected after '" + *begin  + "' | serverConfig.cpp - parseServer()");
-	}
-
-	while (it != end && *it != "}")
-	{
-		std::string key = *it;
-
-		if (++it == end || *it == "}")
-			throw std::runtime_error("Missing value for directive '" + key + "' | serverConfig.cpp - parseServer()");
+			throw std::runtime_error("Unexpected end of server block");
 
 		if (key == "location")
-		{	
-			
-			setLocation(it, end);	// CAUTION Ends in }, and not in ;
+		{
+			TOKEN_IT loc_begin = it;
+			skipBlock(it, end);
+			TOKEN_IT loc_end = it;
+			locationITs.push_back(std::make_pair(loc_begin, loc_end));
 		}
+		else
+		{
+			if (key == "listen") setListen(it);
+			else if (key == "server_name") setServerName(it);
+			else _default.handleDirective(key, it, end);
 
-		if (it == end)
-			throw std::runtime_error("Unexpected end of file while parsing server block | serverConfig.cpp - parseServer()");
+			if (it == end || *it != ";")
+				throw std::runtime_error("';' expected after directive '" + key + "'");
+			++it;
+		}
+	}
+	if (it == end || *it != "}")
+		throw std::runtime_error("Missing closing '}' for server block");
 
-		if (*it != ";")
-			throw std::runtime_error("';' expected after '" + *it  + "' | serverConfig.cpp - parseServer()");
-		it ++;	// Jump the ';'
+	for (size_t i = 0; i < locationITs.size(); ++i)
+	{
+		location temp = parseLocation(locationITs[i].first, locationITs[i].second, _default);
+
+		if (_locations.find(temp.getPath()) != _locations.end())
+			throw std::runtime_error("More than one location with name '" + temp.getPath() + "'");
+
+		std::cout << "location: " << temp.getPath() << std::endl;
+
+		_locations[temp.getPath()] = temp;
 	}
 
-	if (it == end || *it != "}")
-		throw std::runtime_error("Missing closing '}' for server block | serverConfig.cpp - parseServer()");
-
-	location	temp(_default);
-	temp.setPath("/");
-	_locations.push_back(temp);
+	if (_locations.find("/") == _locations.end())
+		_locations["/"] = _default;
 
 	return *this;
 }
-
-*/
 
 location& serverConfig::getDefaultLocation() { return (_default); }
 
-location& serverConfig::getLocation(std::string path)
+location& serverConfig::getLocation(std::string& path)
 {
-	location* bestMatch = &_default;
-	size_t bestLength = 0;
-
-	for (size_t i = 0; i < _locations.size(); i++)
-	{
-		const std::string& locPath = _locations[i].getPath();
-		if (path.find(locPath) == 0 && locPath.size() > bestLength)
-		{
-			bestLength = locPath.size();
-			bestMatch = &_locations[i];
-		}
-	}
-
-	return *bestMatch;
+	std::cout << path;
+	if (_locations.find(path) != _locations.end())
+		return std::cout << " Found " << std::endl, _locations[path];
+	if (_locations.find("/") != _locations.end())
+		return std::cout << " '/' " << std::endl,_locations["/"];
+	std::cout << " Default " << std::endl;
+	return _default;
 }
 
 void serverConfig::printer() const
@@ -302,11 +263,11 @@ void serverConfig::printer() const
 	// All other locations
 	std::cout << "\n--- LOCATIONS (" << _locations.size() << ") ---" << std::endl;
 
-	for (size_t i = 0; i < _locations.size(); ++i)
-	{
-		std::cout << "\n[Location " << i << "]" << std::endl;
-		_locations[i].print();
-	}
+//	for (size_t i = 0; i < _locations.size(); ++i)
+//	{
+//		std::cout << "\n[Location " << i << "]" << std::endl;
+//		_locations[i].print();
+//	}
 
 	std::cout << "\n=========================" << std::endl;
 }
