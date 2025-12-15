@@ -185,11 +185,12 @@ StatusCode	request::setUpGet()
 
 	if (is_directory(_path))
 	{
-		if (!_location.isAutoindex())
-			_path += "/" + _location.getIndex();
-		else
+		std::string tmp = _path + "/" + _location.getPath() + "/" + _location.getIndex();
+		if (!is_file(tmp) && _location.isAutoindex())
 			return AUTOINDEX;
+		_path = tmp;
 	}
+	std::cout << "path: " << _path << std::endl;
 	if (!is_file(_path))
 		return NOT_FOUND;
 	

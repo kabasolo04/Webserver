@@ -406,7 +406,7 @@ StatusCode request::autoindex()
 		if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
 			name += "/";
 
-		html << "<a href=\"" << name << "\">" << name << "</a>\n";
+		html << "<a href=\"" << _location.getPath() + "/" + name << "\">" << name << "</a>\n";
 	}
 
 	html << "</pre></body></html>";
