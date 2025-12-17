@@ -9,7 +9,6 @@ request::request(int fd, serverConfig& server):
 	_cgiChild(0),
 	_location(),
 	_contentLength(0),
-	_code(OK),
 	_currentFunction(ONE),
 	_currentRead(ONE),
 	_currentResponse(ONE)
@@ -151,11 +150,10 @@ StatusCode	request::setUpRequestLine()
 
 		_buffer.erase(0, header_end + 1);
 
-		//_server->printer();
 		_location = _server->getLocation(_path);
 
-/* 		if(!_location.methodAllowed(_method))
-			return METHOD_NOT_ALLOWED; */
+ 		if(!_location.methodAllowed(_method))
+			return METHOD_NOT_ALLOWED;
 
 		if (_path.find(_location.getPath()) == 0)	// In case location path is prefix of target
 			_path = _location.getRoot() + _path.substr(_location.getPath().size());
@@ -211,14 +209,6 @@ StatusCode request::setUpHeader()
 
 StatusCode	request::setUpBody()
 {
-	//printHeaders();
-	//std::cout << "-----------------------------------------------------------" << std::endl;
-	//std::cout << "Path: " << _path << std::endl;
-	//std::cout << "Fd: " << _fd << std::endl;
-	//std::cout << "buffer.length() = " << _buffer.length() << std::endl;
-	//std::cout << "_contentLength = " << _contentLength << std::endl;
-	//std::cout << "_location.getBodySize() = " << _location.getBodySize() << std::endl;
-
 	if (_buffer.length() >= _contentLength)
 	{
 		_body = _buffer;
@@ -282,8 +272,6 @@ StatusCode	request::setUpMethod()
 		{FOUR,	&request::endNode	}
 	};
 
-//	printHeaders();
-
 	setQuery();
 	if (isCgiScript(_path))
 		return CGI;
@@ -309,7 +297,7 @@ StatusCode request::readResponse()
 	return status;
 }
 
-StatusCode request::autoindex()
+std::string autoindexBody(const std::string& _path)
 {
 	std::string newpath;
 
@@ -320,7 +308,7 @@ StatusCode request::autoindex()
 
 	DIR *dir = opendir(newpath.c_str());
 	if (!dir)
-		return INTERNAL_SERVER_ERROR;
+		return "";
 
 	std::ostringstream html;
 
@@ -397,9 +385,8 @@ StatusCode request::autoindex()
 	while ((entry = readdir(dir)) != (void*)0)
 	{
 		std::string name = entry->d_name;
-		std::string fullPath = newpath + "/" + name;
-		std::string printPath = fullPath.substr(6);
-
+		std::string fullPath = newpath + name;
+//		std::string printPath = fullPath.substr(6);
 
 		if (name[0] == '.')
 			continue;
@@ -408,23 +395,21 @@ StatusCode request::autoindex()
 		if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
 			name += "/";
 
-		html << "<a href=\"/" << printPath << "\">" << name << "</a>\n";
+		html << "<a href=\"/" << name << "\">" << name << "</a>\n";
 	}
 
 	html << "</pre></body></html>";
 
-	_responseBody = html.str();
 	closedir(dir);
-	return FINISHED;
+	return html.str();
 }
 
-StatusCode	request::fillResponse() //14221312
+StatusCode	request::fillResponse()
 {
 	static nodeHandler nodes[] = {
 		{ONE,	&request::readResponse	},
-		{TWO,	&request::autoindex		},
-		{THREE,	&request::cgi			},
-		{FOUR,	&request::endNode		}
+		{TWO,	&request::cgi			},
+		{THREE,	&request::endNode		}
 	};
 
 	StatusCode code = (this->*(nodes[_currentResponse].handler))();
@@ -434,8 +419,6 @@ StatusCode	request::fillResponse() //14221312
 		std::stringstream response;
 		response << "Content-Length: " << _responseBody.size() << "\r\n\r\n";
 		_responseHeader.append(response.str());
-//		std::cout << _responseBody << std::endl;
-		return FINISHED;
 	}
 	return code;
 }
@@ -461,7 +444,7 @@ StatusCode request::sendResponse()
 	return FINISHED;
 }
 
-static std::string createErrorBody(StatusCode code)
+static std::string errorBody(StatusCode code)
 {
 	std::stringstream temp;
 	temp <<
@@ -539,49 +522,42 @@ static std::string createErrorBody(StatusCode code)
 
 void request::handleError(StatusCode code)
 {
-	_currentResponse = ONE;
-	_code = code;
-
-	_responseBody = "";
-
 	if (_infile >= 0)
 	{
 		close(_infile);
 		_infile = -1;
 	}
-
 	std::map<int, std::string>::const_iterator it = _location.getErrorPages().find(code);
 	if (it != _location.getErrorPages().end())
 	{
-		_infile = open(it->second.c_str(), O_RDONLY);
+		_infile = open((_location.getRoot() + it->second).c_str(), O_RDONLY);
 		if (_infile >= 0)
-			return ;
+			return _responseBody.clear();
 	}
-	_responseBody = createErrorBody(code);
+	_responseBody = errorBody(code);
 }
 
 void	request::setUpResponse(StatusCode code)
 {
 	epollMood(_fd, EPOLLOUT);
 	_currentFunction = TWO;
+	_currentResponse = ONE;
 
 	std::stringstream response;
 	response
-		<< _protocol << " " << _code << " " << getReasonPhrase(_code).c_str() << "\r\n" 
+		<< _protocol << " " << code << " " << getReasonPhrase(code).c_str() << "\r\n" 
 		<< "Content-Type: " << _contentType << "\r\n"
 		<< "Connection: close\r\n";
 
 	_responseHeader = response.str();
-		
-//	std::cout << _responseHeader << std::endl;
 
 	switch (code)
 	{
 		case CLIENT_DISCONECTED:	std::cout << "Client Disconnected" << std::endl; end();
 			break;
-		case OK:					_currentResponse = ONE;
+		case OK:
 			break;
-		case AUTOINDEX:				_currentResponse = TWO;
+		case AUTOINDEX:				_responseBody = autoindexBody(_path);
 			break;
 		case CGI:					if (cgiSetup()) _currentResponse = THREE; else handleError(INTERNAL_SERVER_ERROR);
 			break;
@@ -591,54 +567,6 @@ void	request::setUpResponse(StatusCode code)
 			break;
 	}
 }
-//
-//void request::setUpResponse()
-//{
-//
-//	epollMood(_fd, EPOLLOUT);
-//	_currentFunction = THREE;
-//
-//	std::stringstream response;
-//
-//	else
-//	{
-//		response	<< _protocol << " " << OK << " " << getReasonPhrase(OK).c_str() << "\r\n" << "Content-Type: text/html" << "\r\n";
-//
-//		if (_code == CGI)
-//		{
-//			response << "Transfer-Encoding: chunked\r\n" << "\r\n";
-//			write(_fd, response.str().c_str(), response.str().size());
-//			_currentResponse = THREE;
-//			return ;
-//		}
-//
-//		if (_code == AUTOINDEX)
-//		{
-//			response << "Transfer-Encoding: chunked\r\n" << "\r\n";
-//			write(_fd, response.str().c_str(), response.str().size());
-//			_currentResponse = TWO;
-//			return ;
-//		}
-//
-//		if (_code == OK)
-//		{
-//			if (_infile > 0)
-//			{
-//				response << "Transfer-Encoding: chunked\r\n" << "\r\n";
-//				write(_fd, response.str().c_str(), response.str().size());
-//				_currentResponse = ONE;
-//				return ;
-//			}
-//
-//			response << "Content-Length: " << _body.length() << "\r\n" << "\r\n";
-//			response << _body;
-//
-//			write(_fd, response.str().c_str(), response.str().size());
-//			_currentFunction = FOUR;
-//		}
-//		return ;
-//	}
-//}
 
 void	request::end()
 {

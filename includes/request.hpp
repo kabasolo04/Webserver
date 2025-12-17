@@ -96,8 +96,6 @@ class request
 		
 		location							_location;
 		size_t								_contentLength;
-
-		StatusCode							_code;
 	
 		Nodes								_currentFunction;
 		Nodes								_currentRead;
@@ -124,7 +122,6 @@ class request
 		StatusCode	setUpMethod();
 //---------------------------------------------------------------------------//
 		StatusCode	readResponse();
-		StatusCode	autoindex();
 		StatusCode	cgi();
 
 		StatusCode	fillResponse();

@@ -204,11 +204,10 @@ void location::print() const
     std::cout << "_autoindex: " << (_autoindex ? "true" : "false") << std::endl;
 
     std::cout << "_errorPages:" << std::endl;
-    for (std::map<int, std::string>::const_iterator it = _errorPages.begin();
-         it != _errorPages.end(); ++it)
-    {
+
+	std::map<int, std::string>::const_iterator it;
+    for (it = _errorPages.begin(); it != _errorPages.end(); ++it)
         std::cout << "  " << it->first << " -> " << it->second << std::endl;
-    }
 
     std::cout << "_requestLineSize: " << _requestLineSize << std::endl;
     std::cout << "_headerSize: " << _headerSize << std::endl;

@@ -234,12 +234,14 @@ location& serverConfig::getDefaultLocation() { return (_default); }
 
 location& serverConfig::getLocation(std::string& path)
 {
-	std::cout << path;
 	if (_locations.find(path) != _locations.end())
-		return std::cout << " Found " << std::endl, _locations[path];
+	{
+		return _locations[path];
+	}
 	if (_locations.find("/") != _locations.end())
-		return std::cout << " '/' " << std::endl,_locations["/"];
-	std::cout << " Default " << std::endl;
+	{
+		return _locations["/"];
+	}
 	return _default;
 }
 
