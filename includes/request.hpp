@@ -161,3 +161,7 @@ class request
 		void	exec();
 		void	end();
 };
+
+std::string	buildAutoindexHtml(std::string uri, DIR *dir);
+std::string createErrorBody(StatusCode code);
+std::string getReasonPhrase(StatusCode code);
