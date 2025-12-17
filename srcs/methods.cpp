@@ -352,8 +352,8 @@ StatusCode request::handleMultipart()
 	return FINISHED;
 }
 
-/*
-bool myPost::chunkedCheck()
+
+/* StatusCode request::chunkedCheck()
 {
 	while (true)
 	{
@@ -365,7 +365,7 @@ bool myPost::chunkedCheck()
 		char *endptr = NULL;
 		unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
 		if (endptr == sizeStr.c_str()) // invalid number
-		returnBAD_REQUEST);
+		return (BAD_REQUEST);
 		
 		if (chunkSize == 0)
 		{
@@ -380,8 +380,8 @@ bool myPost::chunkedCheck()
 		_body.append(_buffer, dataStart, chunkSize);
 		_buffer.erase(0, dataStart + chunkSize + 2);
 	}
-}
-*/
+} */
+
 
 //---------------------------------------------------------------------------//
 // DELETE                                                                    //

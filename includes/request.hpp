@@ -4,7 +4,7 @@
 
 #include <sys/time.h>
 
-#define BUFFER 4096
+#define BUFFER 10000
 
 #define OFF			0
 #define ON			1
@@ -158,3 +158,7 @@ class request
 		void	exec();
 		void	end();
 };
+
+std::string	buildAutoindexHtml(std::string uri, DIR *dir);
+std::string buildErrorHtml(StatusCode code);
+std::string getReasonPhrase(StatusCode code);

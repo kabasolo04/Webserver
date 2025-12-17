@@ -219,7 +219,7 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 		if (_locations.find(temp.getPath()) != _locations.end())
 			throw std::runtime_error("More than one location with name '" + temp.getPath() + "'");
 
-		std::cout << "location: " << temp.getPath() << std::endl;
+//		std::cout << "location: " << temp.getPath() << std::endl;
 
 		_locations[temp.getPath()] = temp;
 	}
@@ -232,16 +232,32 @@ serverConfig& serverConfig::parseServer(TOKEN_IT& it, TOKEN_IT& end)
 
 location& serverConfig::getDefaultLocation() { return (_default); }
 
-location& serverConfig::getLocation(std::string& path)
+location &serverConfig::getLocation(std::string &path)
 {
-	if (_locations.find(path) != _locations.end())
+	location *best = NULL;
+	size_t bestLen = 0;
+
+	std::map<std::string, location>::iterator it;
+	for (it = _locations.begin(); it != _locations.end(); ++it)
 	{
-		return _locations[path];
+		const std::string &locPath = it->first;
+
+		if (path.compare(0, locPath.size(), locPath) == 0)
+		{
+			if (path.size() == locPath.size() ||
+				locPath[locPath.size() - 1] == '/' ||
+				path[locPath.size()] == '/')
+			{
+				if (locPath.size() > bestLen)
+				{
+					bestLen = locPath.size();
+					best = &it->second;
+				}
+			}
+		}
 	}
-	if (_locations.find("/") != _locations.end())
-	{
-		return _locations["/"];
-	}
+	if (best != NULL)
+		return *best;
 	return _default;
 }
 
