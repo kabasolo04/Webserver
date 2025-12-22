@@ -90,7 +90,6 @@ void request::execChild(int outPipe[2], int inPipe[2])
 		envp.push_back(const_cast<char *>(env_str[i].c_str()));
 	envp.push_back(NULL);
 
-
 	execve(argv[0], argv.data(), envp.data());
 	std::cerr << "execve failed: " << strerror(errno) << " (errno = " << errno << ")" << std::endl;
 	_exit(127);
@@ -108,10 +107,10 @@ static StatusCode myRead(int fd, std::string &_buffer)
 	if (n < 0)
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return REPEAT;     // no data available yet
-        if (errno == EINTR)
-            return REPEAT;     // interrupted, retry
-        return READ_ERROR; 
+			return REPEAT;	// no data available yet
+		if (errno == EINTR)
+			return REPEAT;	// interrupted, retry
+		return READ_ERROR; 
 	}
 	if (n == 0)
 		return OK; // EOF: child is done writing
@@ -130,36 +129,34 @@ static size_t findHeaderEnd(std::string buf)
 	else if (pos2 != std::string::npos)
 		return pos2 + 2;
 	else if (pos3 != std::string::npos)
-		return pos3 + 2;
+		return pos3 + 2; 
 	return std::string::npos;
 }
 
 StatusCode request::cgi()
 {
+	if (requestHandler::getCgi(_infile) == false)
+		return REPEAT;
+
 	StatusCode code = myRead(_infile, _responseBody);
+
+	if (code == READ_ERROR)
+		return INTERNAL_SERVER_ERROR;
 
 	if (code == OK)
 	{
-		// child is DONE
-		close(_infile);             // <-- prevent CGI from being called again
+		close(_infile);
 		_infile = -1;
-		_cgiHeaderCheck = false;    // <-- reset state
-		// do NOT reuse old _responseBody
+		_cgiHeaderCheck = false;
+
 		int status;
 		if (waitpid(_cgiChild, &status, 0) == -1)
 			return INTERNAL_SERVER_ERROR;
 
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-		{
-			std::cout << "error 500" << std::endl;
 			return INTERNAL_SERVER_ERROR;
-		}
-
 		return FINISHED;
 	}
-	if (code == READ_ERROR)
-		return INTERNAL_SERVER_ERROR; 
-
 	if (code == REPEAT)
 	{
 		if (_cgiHeaderCheck == false)
@@ -178,6 +175,10 @@ StatusCode request::cgi()
 
 bool request::cgiSetup()
 {
+	_currentResponse = TWO;
+
+	if (!getAbsolutePath(_path)) return false;
+
 	int outPipe[2];
 	if (pipe(outPipe) == -1)
 		return false;
@@ -206,8 +207,6 @@ bool request::cgiSetup()
 		std::cerr << "CGI fork failed" << std::endl;
 		return false;
 	}
-	if (!getAbsolutePath(_path)) return false;
-
 	if (_cgiChild == 0) execChild(outPipe, inPipe);
 
 	close(outPipe[1]);
@@ -220,5 +219,7 @@ bool request::cgiSetup()
 	_infile = outPipe[0];
 	_cgiHeaderCheck = false;
 	_responseBody.clear();
+
+	requestHandler::addCgi(_infile);
 	return true;
 }

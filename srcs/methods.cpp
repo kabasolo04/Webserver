@@ -4,18 +4,6 @@
 // UTILS                                                                       //
 //---------------------------------------------------------------------------//
 
-//#define FILE		S_ISREG
-//#define DIRECTORY	S_ISDIR
-
-//static bool isItA(mode_t type_mask, const std::string &path)
-//{
-//	struct stat info;
-//
-//	if (stat(path.c_str(), &info) != 0)
-//		return false;
-//	return (info.st_mode & S_IFMT) == type_mask;
-//}
-
 static bool	is_directory(const std::string &path)
 {
 	struct stat info;
@@ -160,7 +148,7 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 	ss << ms;
 	std::string time = ss.str();
  
-	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
+//	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
 
 	mkdir((loc->getRoot() + "/forms").c_str(), 0755);
 	std::string filename = loc->getRoot() + "/forms/" + time + ".txt";
@@ -169,7 +157,7 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 		return INTERNAL_SERVER_ERROR;	// Dont know if its okay ********************************************************************************************
 	out.write(part.data(), part.size());
 	out.close();
-	std::cout << "Saved form file: " << filename << std::endl;
+//	std::cout << "Saved form file: " << filename << std::endl;
 	return CREATED;
 }
 
@@ -250,64 +238,11 @@ StatusCode	request::setUpPost()
 
 		default:			return UNSUPPORTED_MEDIA_TYPE;
 	}
-	
 	if (code != FINISHED)
 		return code;
 
-	_responseBody = "<html><body><h1>Upload successful!</h1></body></html>";
-
 	return OK;
 }
-
-
-/* StatusCode request::handleMultipart()
-{
-	printHeaders();
-	std::string contentType = _headers["content-type"];
-	size_t p = contentType.find("boundary=");
-	if (p == std::string::npos)
-		return BAD_REQUEST;
-
-	size_t boundaryStart = p + 9;
-	if (boundaryStart >= contentType.size())
-		return BAD_REQUEST;	// Malformed header
-
-	std::string boundary = "--" + contentType.substr(boundaryStart);
-
-	size_t start = _body.find(boundary);
-	if (start == std::string::npos)
-		return BAD_REQUEST;
-	start += boundary.size() + 2;
-
-	while (start < _body.size())
-	{
-		size_t next = _body.find(boundary, start);
-		bool last = false;
-		if (next == std::string::npos)
-		{
-			next = _body.find(boundary + "--", start);
-			if (next == std::string::npos)
-				next = _body.size();
-			last = true;
-		}
-
-		if (next < start)
-			return BAD_REQUEST;
-
-		if (last)
-			break;
-
-		std::string part = _body.substr(start, next - start);
-		if (part.find("filename=") != std::string::npos)
-			saveFile(part, &_location);
-		else
-			saveForm(part, &_location);
-
-		start = next + boundary.size();
-	}
-	return FINISHED;
-}
- */
 
 StatusCode request::handleMultipart()
 {
@@ -352,37 +287,6 @@ StatusCode request::handleMultipart()
 	return FINISHED;
 }
 
-
-/* StatusCode request::chunkedCheck()
-{
-	while (true)
-	{
-		size_t pos = _buffer.find("\r\n");
-		if (pos == std::string::npos)
-		return false;
-		
-		std::string sizeStr = _buffer.substr(0, pos);
-		char *endptr = NULL;
-		unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
-		if (endptr == sizeStr.c_str()) // invalid number
-		return (BAD_REQUEST);
-		
-		if (chunkSize == 0)
-		{
-			if (_buffer.size() >= pos + 4)
-				return (_buffer.erase(0, pos + 4), 1);
-			return false;
-		}
-		size_t totalNeeded = pos + 2 + chunkSize + 2;
-		if (_buffer.size() < totalNeeded)
-		return false;
-		size_t dataStart = pos + 2;
-		_body.append(_buffer, dataStart, chunkSize);
-		_buffer.erase(0, dataStart + chunkSize + 2);
-	}
-} */
-
-
 //---------------------------------------------------------------------------//
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
@@ -390,22 +294,19 @@ StatusCode request::handleMultipart()
 StatusCode	request::setUpDel()
 {
 	if (is_directory(_path))
-		return FORBIDEN;
+		return FORBIDDEN;
 
 	if (std::remove(_path.c_str()) == 0)
-	{
-		_responseBody = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
 		return OK;
-	}
 
 	switch (errno)
 	{
 		case ENOENT: // File doesn't exist
 			return NOT_FOUND;
 		case EACCES: // Permission denied
-			return FORBIDEN;
+			return FORBIDDEN;
 		case EPERM:  // Operation not permitted
-			return FORBIDEN;
+			return FORBIDDEN;
 		default:     // Something else went wrong
 			return INTERNAL_SERVER_ERROR;
 	}

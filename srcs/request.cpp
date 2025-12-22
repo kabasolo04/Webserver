@@ -14,7 +14,6 @@ request::request(int fd, serverConfig& server):
 	_currentResponse(ONE)
 	{
 		gettimeofday(&_last_activity, NULL);
-//		_server->printer();
 	}
 
 request::request(const request& other) { *this = other; }
@@ -44,71 +43,36 @@ request&	request::operator = (const request& other)
 	return (*this);
 }
 
+static bool timeoutCheck(struct timeval *last_activity, long timeout_ms)
+{
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
+	long seconds = now.tv_sec  - last_activity->tv_sec;
+	long usec	 = now.tv_usec - last_activity->tv_usec;
+
+	long elapsed_ms = seconds * 1000 + usec / 1000;
+
+	return (elapsed_ms > timeout_ms);
+}
+
 StatusCode	request::endNode()	{ return END; }
 
-//#define TIMEOUT_MS 500000
-
-//static bool timeoutCheck(struct timeval *last_activity, long timeout_ms)
-//{
-//	struct timeval now;
-//	gettimeofday(&now, NULL);
-//
-//	long seconds  = now.tv_sec  - last_activity->tv_sec;
-//	long usec     = now.tv_usec - last_activity->tv_usec;
-//
-//	long elapsed_ms = seconds * 1000 + usec / 1000;
-//
-//	return (elapsed_ms > timeout_ms);
-//}
-
-StatusCode request::execNode(nodeData& data, const nodeHandler nodes[])
+StatusCode request::execNode(Nodes& currentNode, const nodeHandler nodes[])
 {
 	StatusCode code;
 
 	while (1)
 	{
-		//if (data.timeout == ON && timeoutCheck(&_last_activity, TIMEOUT_MS))
-		//	return REQUEST_TIMEOUT;
-
-		code = (this->*(nodes[data.currentNode].handler))();
+		code = (this->*(nodes[currentNode].handler))();
 
 		if (code == END)
 			return FINISHED;
 
 		if (code != FINISHED)
 			return code;
-
-		data.currentNode = static_cast<Nodes>(static_cast<int>(data.currentNode) + 1);
 		
-		//if (data.timeout == ON)
-		//	gettimeofday(&_last_activity, NULL);	// Reset the timeout per action finished
-		
-		if (data.cascade == OFF)
-			return code;
-	}
-}
-
-std::string getReasonPhrase(StatusCode code)
-{
-	switch (code)
-	{
-		case OK:								return "OK";
-		case CREATED:							return "Created";
-		case NO_CONTENT:						return "No Content";
-		case FOUND:								return "Found";
-		case BAD_REQUEST:						return "Bad Request";
-		case NOT_FOUND:							return "Not Found";
-		case INTERNAL_SERVER_ERROR:				return "Internal Server Error";
-		case FORBIDEN:							return "Forbiden";
-		case METHOD_NOT_ALLOWED:				return "Method Not Allowed";
-		case REQUEST_TIMEOUT:					return "Request Timeout";
-		case PAYLOAD_TOO_LARGE: 				return "Payload Too Large";
-		case UNSUPPORTED_MEDIA_TYPE:			return "Unsupported Media Type";
-		case REQUEST_HEADER_FIELDS_TOO_LARGE:	return "Request Header Fields Too Large";
-		case NOT_IMPLEMENTED: 					return "Not Implemented";
-		case GATEWAY_TIMEOUT: 					return "Gateway Timeout";
-		case LOL: 								return "No Fucking Idea Mate";
-		default:								return "Unknown";
+		currentNode = static_cast<Nodes>(static_cast<int>(currentNode) + 1);
 	}
 }
 
@@ -133,7 +97,7 @@ static StatusCode	myRead(int fd, std::string& _buffer)
 		return CLIENT_DISCONECTED;
 
 	_buffer.append(buffer, len);
- 
+
 	return REPEAT;
 }
 
@@ -236,9 +200,7 @@ StatusCode request::readRequest()
 	if (code == CLIENT_DISCONECTED)
 		return REPEAT;
 
-	nodeData data = {_currentRead, CASCADE_ON, TIMEOUT_ON};
-
-	return execNode(data, nodes);
+	return execNode(_currentRead, nodes);
 }
 
 struct methodHandler
@@ -320,8 +282,7 @@ StatusCode	request::fillResponse()
 {
 	static nodeHandler nodes[] = {
 		{ONE,	&request::readResponse	},
-		{TWO,	&request::cgi			},
-		{THREE,	&request::endNode		}
+		{TWO,	&request::cgi			}
 	};
 
 	StatusCode code = (this->*(nodes[_currentResponse].handler))();
@@ -356,8 +317,14 @@ StatusCode request::sendResponse()
 	return FINISHED;
 }
 
-void request::handleError(StatusCode code)
+void request::handleStatusCode(StatusCode code)
 {
+	if (code > SUCCESS && code < REDIRECTION)
+	{
+		if (_infile < 0 && _responseBody.empty())
+			_responseBody = buildSuccesHtml(code);
+		return ;
+	}
 	if (_infile >= 0)
 	{
 		close(_infile);
@@ -379,6 +346,20 @@ void	request::setUpResponse(StatusCode code)
 	_currentFunction = TWO;
 	_currentResponse = ONE;
 
+	switch (code)
+	{
+		case CLIENT_DISCONECTED:	std::cout << "Client Disconnected" << std::endl; return end();
+			break;
+		case AUTOINDEX:				_responseBody = autoindexBody(_path); code = OK;
+			break;
+		case CGI:					if (cgiSetup()) code = OK; else code = INTERNAL_SERVER_ERROR;
+			break;
+		case READ_ERROR:			std::cout << "Read Error" << std::endl; code = INTERNAL_SERVER_ERROR;
+			break;
+		default:
+			break;
+	}
+
 	std::stringstream response;
 	response
 		<< _protocol << " " << code << " " << getReasonPhrase(code).c_str() << "\r\n" 
@@ -387,21 +368,7 @@ void	request::setUpResponse(StatusCode code)
 
 	_responseHeader = response.str();
 
-	switch (code)
-	{
-		case CLIENT_DISCONECTED:	std::cout << "Client Disconnected" << std::endl; end();
-			break;
-		case OK:
-			break;
-		case AUTOINDEX:				_responseBody = autoindexBody(_path);
-			break;
-		case CGI:					if (cgiSetup()) _currentResponse = TWO; else handleError(INTERNAL_SERVER_ERROR);
-			break;
-		case READ_ERROR:			std::cout << "Read Error" << std::endl; handleError(INTERNAL_SERVER_ERROR);
-			break;
-		default: /* Errors */		handleError(code);
-			break;
-	}
+	handleStatusCode(code);
 }
 
 void	request::end()
@@ -414,9 +381,9 @@ void	request::end()
 	// If there is a running CGI child, terminate it before closing the pipe
 	if (_cgiChild > 0)
 	{
+		requestHandler::delCgi(_infile);
 		kill(_cgiChild, SIGKILL);
 		waitpid(_cgiChild, NULL, 0);
-		_cgiChild = 0;
 	}
 	if (_infile >= 0)
 		close(_infile);
@@ -424,21 +391,27 @@ void	request::end()
 	requestHandler::delReq(_fd);
 }
 
-void request::exec()
+void	request::exec()
 {
-	static nodeHandler nodes[] = {
-		{ONE, 	&request::readRequest	},
+	static nodeHandler	nodes[] = {
+		{ONE,	&request::readRequest	},
 		{TWO,	&request::fillResponse	},
 		{THREE,	&request::sendResponse	},
 		{FOUR,	&request::endNode		}
 	};
 
-	nodeData data = {_currentFunction, CASCADE_OFF, TIMEOUT_ON};
-
-	StatusCode code = execNode(data, nodes);
+	StatusCode	code = execNode(_currentFunction, nodes);
 
 	if(code == FINISHED && _currentFunction == FOUR)
-		end();
+		return end();
+
+	if (code == REPEAT && _currentFunction != THREE)
+	{
+		if (timeoutCheck(&_last_activity, TIMEOUT_MS))
+			code = GATEWAY_TIMEOUT;
+	}
+	else
+		gettimeofday(&_last_activity, NULL);
 
 	if (code >= RESPONSE)
 		setUpResponse(code);
@@ -451,29 +424,9 @@ void	request::printHeaders()
 	std::cout << "Protocol: " << _protocol << std::endl;
 	std::map<std::string, std::string>::iterator it;
 	for (it = _headers.begin(); it != _headers.end(); ++it)
-	std::cout << it->first << ": " << it->second << std::endl;
+		std::cout << it->first << ": " << it->second << std::endl;
 	std::cout << "=============" << std::endl;
 }
-
-	//if (_protocol == "HTTP/1.1" || _headers.find("Connection") != _headers.end())
-	//{
-	//	_method.clear();
-	//	_buffer.clear();
-	//	_path.clear();
-	//	_protocol.clear();
-	//	_headers.clear();
-	//	_contentType.clear();
-	//	_contentLength = 0;
-	//	_query.clear();
-
-	//	//_location = ;
-	//	_currentFunction = ONE;
-	//	_currentRead = ONE;
-	//	_code = OK;
-
-	//	epollMood(_fd, EPOLLIN);
-	//}
-	//else
 
 const std::string& request::getContentType()	const { return _contentType;	}
 const std::string& request::getBody()			const { return _body;			}
