@@ -4,18 +4,6 @@
 // UTILS                                                                       //
 //---------------------------------------------------------------------------//
 
-//#define FILE		S_ISREG
-//#define DIRECTORY	S_ISDIR
-
-//static bool isItA(mode_t type_mask, const std::string &path)
-//{
-//	struct stat info;
-//
-//	if (stat(path.c_str(), &info) != 0)
-//		return false;
-//	return (info.st_mode & S_IFMT) == type_mask;
-//}
-
 static bool	is_directory(const std::string &path)
 {
 	struct stat info;
@@ -160,7 +148,7 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 	ss << ms;
 	std::string time = ss.str();
  
-	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
+//	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
 
 	mkdir((loc->getRoot() + "/forms").c_str(), 0755);
 	std::string filename = loc->getRoot() + "/forms/" + time + ".txt";
@@ -169,7 +157,7 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 		return INTERNAL_SERVER_ERROR;	// Dont know if its okay ********************************************************************************************
 	out.write(part.data(), part.size());
 	out.close();
-	std::cout << "Saved form file: " << filename << std::endl;
+//	std::cout << "Saved form file: " << filename << std::endl;
 	return CREATED;
 }
 
@@ -251,7 +239,6 @@ StatusCode	request::setUpPost()
 
 		default:			return UNSUPPORTED_MEDIA_TYPE;
 	}
-	
 	if (code != FINISHED)
 		return code;
 
@@ -305,25 +292,44 @@ StatusCode request::handleMultipart()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
+static std::string urlDecode(const std::string &s)
+{
+	std::string out;
+	for (size_t i = 0; i < s.size(); i++)
+	{
+		if (s[i] == '%' && i + 2 < s.size())
+		{
+			int value;
+			std::istringstream iss(s.substr(i + 1, 2));
+			iss >> std::hex >> value;
+			out += static_cast<char>(value);
+			i += 2;
+		}
+		else
+			out += s[i];
+	}
+	return out;
+}
+
 StatusCode	request::setUpDel()
 {
+	_path = urlDecode(_path);
+	
+	std::cout << _path << std::endl;
 	if (is_directory(_path))
-		return FORBIDEN;
+		return FORBIDDEN;
 
 	if (std::remove(_path.c_str()) == 0)
-	{
-		_responseBody = "<html><body><h1>" + _path + " deleted successfully!</h1></body></html>";
 		return OK;
-	}
 
 	switch (errno)
 	{
 		case ENOENT: // File doesn't exist
 			return NOT_FOUND;
 		case EACCES: // Permission denied
-			return FORBIDEN;
+			return FORBIDDEN;
 		case EPERM:  // Operation not permitted
-			return FORBIDEN;
+			return FORBIDDEN;
 		default:     // Something else went wrong
 			return INTERNAL_SERVER_ERROR;
 	}

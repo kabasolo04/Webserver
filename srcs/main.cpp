@@ -23,8 +23,6 @@ void myAccept(int fd, serverConfig& server)
 				std::cout << "Error: Accept | main.cpp - myAccept()" << std::endl;
 			break;
 		}
-		//std::cout << "New Request" << std::endl;
-		
 		requestHandler::addReq(clientFd, server);
 	}
 }
@@ -56,16 +54,16 @@ int main(int argc, char **argv)
 	}
 
 	signal(SIGINT, signalHandler);
+	signal(SIGPIPE, SIG_IGN);
 
 	struct epoll_event	events[MAX_EVENTS];
 
 	while (1)
 	{
 		int n = epoll_wait(conf::epfd(), events, MAX_EVENTS, -1);
+
 		if (n < 0)
 			return (std::cout << "Error: epoll_wait failed | main.cpp - main()" << std::endl, 1);
-
-		//std::cout << "Epoll Loop" << std::endl;
 		
 		for (int i = 0; i < n; i++)
 			if (!newRequest(events[i].data.fd))

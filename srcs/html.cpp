@@ -173,3 +173,162 @@ std::string buildErrorHtml(StatusCode code)
 
 	return (temp.str());
 }
+
+std::string buildSuccesHtml(StatusCode code)
+{
+	std::stringstream html;
+	std::string phrase = getReasonPhrase(code);
+
+	html << "<!DOCTYPE html>\n"
+		 << "<html lang=\"en\">\n"
+		 << "<head>\n"
+		 << "\t<meta charset=\"UTF-8\">\n"
+		 << "\t<title>"
+		 << code << " " << phrase
+		 << "</title>\n"
+		 << "\t<style>\n"
+		 << "\t\tbody {\n"
+		 << "\t\t\tmargin: 0;\n"
+		 << "\t\t\tfont-family: Arial, sans-serif;\n"
+		 << "\t\t\tbackground: linear-gradient(135deg, #ff9a9e, #fad0c4);\n"
+		 << "\t\t\tdisplay: flex;\n"
+		 << "\t\t\tjustify-content: center;\n"
+		 << "\t\t\talign-items: center;\n"
+		 << "\t\t\theight: 100vh;\n"
+		 << "\t\t}\n"
+		 << "\t\t.card {\n"
+		 << "\t\t\tbackground: white;\n"
+		 << "\t\t\tpadding: 50px;\n"
+		 << "\t\t\tborder-radius: 20px;\n"
+		 << "\t\t\tbox-shadow: 0 20px 40px rgba(0,0,0,0.2);\n"
+		 << "\t\t\ttext-align: center;\n"
+		 << "\t\t\tmax-width: 500px;\n"
+		 << "\t\t}\n"
+		 << "\t\th1 {\n"
+		 << "\t\t\tmargin: 0;\n"
+		 << "\t\t\tfont-size: 48px;\n"
+		 << "\t\t\tcolor: #ff5f8f;\n"
+		 << "\t\t}\n"
+		 << "\t\tp {\n"
+		 << "\t\t\tmargin-top: 20px;\n"
+		 << "\t\t\tfont-size: 18px;\n"
+		 << "\t\t\tcolor: #555;\n"
+		 << "\t\t}\n"
+		 << "\t\t.badge {\n"
+		 << "\t\t\tdisplay: inline-block;\n"
+		 << "\t\t\tmargin-top: 30px;\n"
+		 << "\t\t\tpadding: 10px 20px;\n"
+		 << "\t\t\tbackground: #ff5f8f;\n"
+		 << "\t\t\tcolor: white;\n"
+		 << "\t\t\tborder-radius: 999px;\n"
+		 << "\t\t\tfont-weight: bold;\n"
+		 << "\t\t\tletter-spacing: 1px;\n"
+		 << "\t\t}\n"
+		 << "\t\t.back-btn {\n"
+		 << "\t\t\tdisplay: inline-block;\n"
+		 << "\t\t\tmargin-top: 40px;\n"
+		 << "\t\t\tpadding: 12px 30px;\n"
+		 << "\t\t\tbackground: #ffd1dc;\n"
+		 << "\t\t\tcolor: #ff5f8f;\n"
+		 << "\t\t\ttext-decoration: none;\n"
+		 << "\t\t\tfont-weight: bold;\n"
+		 << "\t\t\tborder-radius: 999px;\n"
+		 << "\t\t\ttransition: transform 0.1s ease, box-shadow 0.1s ease;\n"
+		 << "\t\t}\n"
+		 << "\t\t.back-btn:hover {\n"
+		 << "\t\t\ttransform: translateY(-2px);\n"
+		 << "\t\t\tbox-shadow: 0 5px 15px rgba(0,0,0,0.2);\n"
+		 << "\t\t}\n"
+		 << "\t</style>\n"
+		 << "</head>\n"
+		 << "<body>\n"
+		 << "\t<div class=\"card\">\n"
+		 << "\t\t<h1>"
+		 << code << "</h1>\n"
+		 << "\t\t<p><strong>"
+		 << phrase
+		 << "</strong></p>\n"
+		 << "\t\t<p>Everything went amazing 💖<br>Like, literally iconic.</p>\n"
+		 << "\t\t<div class=\"badge\">SUCCESS ✨</div>\n"
+		 << "\t\t<br>\n"
+		 << "\t\t<a class=\"back-btn\" href=\"/\">Go back</a>\n"
+		 << "\t</div>\n"
+		 << "</body>\n"
+		 << "</html>\n";
+
+	return html.str();
+}
+
+std::string getReasonPhrase(StatusCode code)
+{
+	switch (code)
+	{
+		// 2xx – Success
+		case OK:								return "OK";
+		case CREATED:							return "Created";
+		case ACCEPTED:							return "Accepted";
+		case NON_AUTHORITATIVE_INFORMATION:		return "Non-Authoritative Information";
+		case NO_CONTENT:						return "No Content";
+		case RESET_CONTENT:						return "Reset Content";
+		case PARTIAL_CONTENT:					return "Partial Content";
+		case MULTI_STATUS:						return "Multi-Status";
+		case ALREADY_REPORTED:					return "Already Reported";
+		case IM_USED:							return "IM Used";
+
+		// 3xx – Redirection
+		case MULTIPLE_CHOICES:					return "Multiple Choices";
+		case MOVED_PERMANENTLY:					return "Moved Permanently";
+		case FOUND:								return "Found";
+		case SEE_OTHER:							return "See Other";
+		case NOT_MODIFIED:						return "Not Modified";
+		case USE_PROXY:							return "Use Proxy";
+		case TEMPORARY_REDIRECT:				return "Temporary Redirect";
+		case PERMANENT_REDIRECT:				return "Permanent Redirect";
+
+		// 4xx – Client Errors
+		case BAD_REQUEST:						return "Bad Request";
+		case UNAUTHORIZED:						return "Unauthorized";
+		case PAYMENT_REQUIRED:					return "Payment Required";
+		case FORBIDDEN:							return "Forbidden";
+		case NOT_FOUND:							return "Not Found";
+		case METHOD_NOT_ALLOWED:				return "Method Not Allowed";
+		case NOT_ACCEPTABLE:					return "Not Acceptable";
+		case PROXY_AUTHENTICATION_REQUIRED:		return "Proxy Authentication Required";
+		case REQUEST_TIMEOUT:					return "Request Timeout";
+		case CONFLICT:							return "Conflict";
+		case GONE:								return "Gone";
+		case LENGTH_REQUIRED:					return "Length Required";
+		case PRECONDITION_FAILED:				return "Precondition Failed";
+		case PAYLOAD_TOO_LARGE:					return "Payload Too Large";
+		case URI_TOO_LONG:						return "URI Too Long";
+		case UNSUPPORTED_MEDIA_TYPE:			return "Unsupported Media Type";
+		case RANGE_NOT_SATISFIABLE:				return "Range Not Satisfiable";
+		case EXPECTATION_FAILED:				return "Expectation Failed";
+		case IM_A_TEAPOT:						return "I'm a teapot";
+		case MISDIRECTED_REQUEST:				return "Misdirected Request";
+		case UNPROCESSABLE_ENTITY:				return "Unprocessable Entity";
+		case LOCKED:							return "Locked";
+		case FAILED_DEPENDENCY:					return "Failed Dependency";
+		case TOO_EARLY:							return "Too Early";
+		case UPGRADE_REQUIRED:					return "Upgrade Required";
+		case PRECONDITION_REQUIRED:				return "Precondition Required";
+		case TOO_MANY_REQUESTS:					return "Too Many Requests";
+		case REQUEST_HEADER_FIELDS_TOO_LARGE:	return "Request Header Fields Too Large";
+		case UNAVAILABLE_FOR_LEGAL_REASONS:		return "Unavailable For Legal Reasons";
+
+		// 5xx – Server Errors
+		case INTERNAL_SERVER_ERROR:				return "Internal Server Error";
+		case NOT_IMPLEMENTED:					return "Not Implemented";
+		case BAD_GATEWAY:						return "Bad Gateway";
+		case SERVICE_UNAVAILABLE:				return "Service Unavailable";
+		case GATEWAY_TIMEOUT:					return "Gateway Timeout";
+		case HTTP_VERSION_NOT_SUPPORTED:		return "HTTP Version Not Supported";
+		case VARIANT_ALSO_NEGOTIATES:			return "Variant Also Negotiates";
+		case INSUFFICIENT_STORAGE:				return "Insufficient Storage";
+		case LOOP_DETECTED:						return "Loop Detected";
+		case NOT_EXTENDED:						return "Not Extended";
+		case NETWORK_AUTHENTICATION_REQUIRED:	return "Network Authentication Required";
+
+		default:								return "Unknown";
+	}
+}
