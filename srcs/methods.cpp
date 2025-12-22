@@ -237,6 +237,7 @@ StatusCode	request::setUpPost()
 {
 	StatusCode code;
 
+	printHeaders();
 	if (_headers.find("Content-Type") == _headers.end())
 		return BAD_REQUEST;
 
@@ -254,60 +255,8 @@ StatusCode	request::setUpPost()
 	if (code != FINISHED)
 		return code;
 
-	_responseBody = "<html><body><h1>Upload successful!</h1></body></html>";
-
-	return OK;
+	return CREATED;
 }
-
-
-/* StatusCode request::handleMultipart()
-{
-	printHeaders();
-	std::string contentType = _headers["content-type"];
-	size_t p = contentType.find("boundary=");
-	if (p == std::string::npos)
-		return BAD_REQUEST;
-
-	size_t boundaryStart = p + 9;
-	if (boundaryStart >= contentType.size())
-		return BAD_REQUEST;	// Malformed header
-
-	std::string boundary = "--" + contentType.substr(boundaryStart);
-
-	size_t start = _body.find(boundary);
-	if (start == std::string::npos)
-		return BAD_REQUEST;
-	start += boundary.size() + 2;
-
-	while (start < _body.size())
-	{
-		size_t next = _body.find(boundary, start);
-		bool last = false;
-		if (next == std::string::npos)
-		{
-			next = _body.find(boundary + "--", start);
-			if (next == std::string::npos)
-				next = _body.size();
-			last = true;
-		}
-
-		if (next < start)
-			return BAD_REQUEST;
-
-		if (last)
-			break;
-
-		std::string part = _body.substr(start, next - start);
-		if (part.find("filename=") != std::string::npos)
-			saveFile(part, &_location);
-		else
-			saveForm(part, &_location);
-
-		start = next + boundary.size();
-	}
-	return FINISHED;
-}
- */
 
 StatusCode request::handleMultipart()
 {
@@ -351,37 +300,6 @@ StatusCode request::handleMultipart()
 	}
 	return FINISHED;
 }
-
-
-/* StatusCode request::chunkedCheck()
-{
-	while (true)
-	{
-		size_t pos = _buffer.find("\r\n");
-		if (pos == std::string::npos)
-		return false;
-		
-		std::string sizeStr = _buffer.substr(0, pos);
-		char *endptr = NULL;
-		unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
-		if (endptr == sizeStr.c_str()) // invalid number
-		return (BAD_REQUEST);
-		
-		if (chunkSize == 0)
-		{
-			if (_buffer.size() >= pos + 4)
-				return (_buffer.erase(0, pos + 4), 1);
-			return false;
-		}
-		size_t totalNeeded = pos + 2 + chunkSize + 2;
-		if (_buffer.size() < totalNeeded)
-		return false;
-		size_t dataStart = pos + 2;
-		_body.append(_buffer, dataStart, chunkSize);
-		_buffer.erase(0, dataStart + chunkSize + 2);
-	}
-} */
-
 
 //---------------------------------------------------------------------------//
 // DELETE                                                                    //

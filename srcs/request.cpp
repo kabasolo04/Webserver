@@ -191,8 +191,10 @@ StatusCode request::setUpHeader()
 				std::stringstream sstream(_headers["Content-Length"]);
 				sstream >> _contentLength;
 			}
-			if (_contentLength > _location.getBodySize())
-				return PAYLOAD_TOO_LARGE;
+/* 			if (_contentLength > _location.getBodySize())
+				return PAYLOAD_TOO_LARGE; */
+
+			
 			return FINISHED;
 		}
 		size_t colon = line.find(':');
@@ -210,11 +212,65 @@ StatusCode request::setUpHeader()
 
 StatusCode	request::setUpBody()
 {
-	if (_buffer.length() >= _contentLength)
+	if (_headers.count("Transfer-Encoding")
+		&& _headers["Transfer-Encoding"].find("chunked") != std::string::npos )
+		return chunkedBody();
+	else if (_buffer.length() >= _contentLength)
 	{
+		if (_contentLength > _location.getBodySize())
+			return PAYLOAD_TOO_LARGE;
 		_body = _buffer;
 		return FINISHED;
 	}
+	return REPEAT;
+}
+
+StatusCode request::chunkedBody()
+{
+	size_t pos = _buffer.find("\r\n");
+	if (pos == std::string::npos)
+		return REPEAT;
+
+	std::string sizeStr = _buffer.substr(0, pos);
+
+	// Handle chunk extensions (ignore after ;)
+	size_t semi = sizeStr.find(';');
+	if (semi != std::string::npos)
+		sizeStr = sizeStr.substr(0, semi);
+
+	char *endptr = NULL;
+	unsigned long chunkSize = std::strtoul(sizeStr.c_str(), &endptr, 16);
+	if (endptr == sizeStr.c_str()) // invalid number
+		return BAD_REQUEST;
+
+	if (chunkSize == 0)
+	{
+		// need "0\r\n\r\n"
+		if (_buffer.size() < pos + 4)
+			return REPEAT;
+
+		_buffer.erase(0, pos + 4);
+		return FINISHED;
+	}
+	size_t dataStart = pos + 2;
+	size_t totalNeeded = dataStart + chunkSize + 2;
+
+	if (_buffer.size() < totalNeeded)
+		return REPEAT;
+
+	// Validate CRLF after chunk data
+	if (_buffer[dataStart + chunkSize] != '\r' ||
+		_buffer[dataStart + chunkSize + 1] != '\n')
+		return BAD_REQUEST;
+
+	// Append body
+	_body.append(_buffer, dataStart, chunkSize);
+
+	// Enforce body size limit HERE
+	if (_body.size() > _location.getBodySize())
+		return PAYLOAD_TOO_LARGE;
+
+	_buffer.erase(0, totalNeeded);
 	return REPEAT;
 }
 
