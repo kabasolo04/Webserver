@@ -225,6 +225,7 @@ StatusCode	request::setUpPost()
 {
 	StatusCode code;
 
+	printHeaders();
 	if (_headers.find("Content-Type") == _headers.end())
 		return BAD_REQUEST;
 
@@ -241,7 +242,7 @@ StatusCode	request::setUpPost()
 	if (code != FINISHED)
 		return code;
 
-	return OK;
+	return CREATED;
 }
 
 StatusCode request::handleMultipart()
@@ -291,8 +292,30 @@ StatusCode request::handleMultipart()
 // DELETE                                                                    //
 //---------------------------------------------------------------------------//
 
+static std::string urlDecode(const std::string &s)
+{
+	std::string out;
+	for (size_t i = 0; i < s.size(); i++)
+	{
+		if (s[i] == '%' && i + 2 < s.size())
+		{
+			int value;
+			std::istringstream iss(s.substr(i + 1, 2));
+			iss >> std::hex >> value;
+			out += static_cast<char>(value);
+			i += 2;
+		}
+		else
+			out += s[i];
+	}
+	return out;
+}
+
 StatusCode	request::setUpDel()
 {
+	_path = urlDecode(_path);
+	
+	std::cout << _path << std::endl;
 	if (is_directory(_path))
 		return FORBIDDEN;
 

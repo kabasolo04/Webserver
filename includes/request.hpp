@@ -140,6 +140,8 @@ class request
 		StatusCode	setUpHeader();
 		StatusCode	setUpBody();
 		StatusCode	readRequest();
+		StatusCode	chunkedBody();
+
 //---------------------------------------------------------------------------//
 		StatusCode	setUpGet();
 		StatusCode	setUpPost();
