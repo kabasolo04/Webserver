@@ -136,11 +136,7 @@ static size_t findHeaderEnd(std::string buf)
 StatusCode request::cgi()
 {
 	if (requestHandler::getCgi(_infile) == false)
-	{
-		std::cout << "NOOOOO" << std::endl;
 		return REPEAT;
-	}
-	std::cout << "YESSSSS" << std::endl;
 	requestHandler::setCgi(_infile, false);
 
 	StatusCode code = myRead(_infile, _responseBody);
