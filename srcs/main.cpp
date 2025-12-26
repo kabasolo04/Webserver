@@ -6,7 +6,8 @@
 void signalHandler(int sig)
 {
 	std::cout << "Interrupt handle " << sig << std::endl;
-	exit(sig);
+	requestHandler::freeAll();
+	exit(0);
 }
 
 void myAccept(int fd, serverConfig& server)

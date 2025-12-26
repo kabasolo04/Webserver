@@ -12,6 +12,8 @@ class requestHandler
 		~requestHandler();
 		
 	public:
+		static void freeAll();
+
 		static void	addReq(int fd, serverConfig& server);
 		static void	execReq(int fd);
 		static void	delReq(int fd);

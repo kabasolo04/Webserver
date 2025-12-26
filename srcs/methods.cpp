@@ -1,14 +1,14 @@
 #include "WebServer.hpp"
 
 //---------------------------------------------------------------------------//
-// UTILS                                                                       //
+// UTILS                                                                     //
 //---------------------------------------------------------------------------//
 
 static bool	is_directory(const std::string &path)
 {
 	struct stat info;
 	if (stat(path.c_str(), &info) != 0)
-		return false;			  // failed to get info (doesn't exist, etc.)
+		return false;
 	return S_ISDIR(info.st_mode);
 }
 
@@ -17,7 +17,7 @@ static bool	is_file(const std::string &path)
 	struct stat info;
 	if (stat(path.c_str(), &info) != 0)
 		return false;
-	return S_ISREG(info.st_mode); // true if regular file
+	return S_ISREG(info.st_mode);
 }
 
 std::string getMimeType(const std::string &path)
@@ -40,50 +40,50 @@ std::string getMimeType(const std::string &path)
 		// non-const reference via const_cast (C++98 trick)
 		std::map<std::string, std::string> &m = const_cast<std::map<std::string, std::string>&>(mime);
 		
-		m["jpg"] =  "image/jpeg";
-		m["jpeg"] = "image/jpeg";
-		m["JPG"] = "image/jpeg";
-		m["png"] =  "image/png";
-		m["gif"] =  "image/gif";
-		m["bmp"] =  "image/bmp";
-		m["svg"] =  "image/svg+xml";
+		m["jpg"]	= "image/jpeg";
+		m["jpeg"]	= "image/jpeg";
+		m["JPG"]	= "image/jpeg";
+		m["png"]	= "image/png";
+		m["gif"]	= "image/gif";
+		m["bmp"]	= "image/bmp";
+		m["svg"]	= "image/svg+xml";
 
-		m["html"] = "text/html";
-		m["htm"]  = "text/html";
-		m["php"]  = "text/html";
-		m["css"]  = "text/css";
-		m["js"]   = "application/javascript";
-		m["txt"]  = "text/plain";
-		m["md"]   = "text/plain";
-		m["ini"]  = "text/plain";
-		m["log"]  = "text/plain";
+		m["html"]	= "text/html";
+		m["htm"]	= "text/html";
+		m["php"]	= "text/html";
+		m["css"]	= "text/css";
+		m["js"]		= "application/javascript";
+		m["txt"]	= "text/plain";
+		m["md"]		= "text/plain";
+		m["ini"]	= "text/plain";
+		m["log"]	= "text/plain";
 
-		m["c"]    = "text/x-c";
-		m["cpp"]  = "text/x-c";
-		m["h"]    = "text/plain";
+		m["c"]		= "text/x-c";
+		m["cpp"]	= "text/x-c";
+		m["h"]		= "text/plain";
 
-		m["pdf"]  = "application/pdf";
-		m["doc"]  = "application/msword";
-		m["docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-		m["xls"]  = "application/vnd.ms-excel";
-		m["xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-		m["ppt"]  = "application/vnd.ms-powerpoint";
+		m["pdf"]	= "application/pdf";
+		m["doc"]	= "application/msword";
+		m["docx"]	= "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+		m["xls"]	= "application/vnd.ms-excel";
+		m["xlsx"]	= "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+		m["ppt"]	= "application/vnd.ms-powerpoint";
 
-		m["zip"]  = "application/zip";
-		m["rar"]  = "application/vnd.rar";
-		m["tar"]  = "application/x-tar";
-		m["gz"]   = "application/gzip";
-		m["7z"]   = "application/x-7z-compressed";
+		m["zip"]	= "application/zip";
+		m["rar"]	= "application/vnd.rar";
+		m["tar"]	= "application/x-tar";
+		m["gz"]		= "application/gzip";
+		m["7z"]		= "application/x-7z-compressed";
 
-		m["mp3"]  = "audio/mpeg";
-		m["wav"]  = "audio/wav";
-		m["flac"] = "audio/flac";
-		m["aac"]  = "audio/aac";
+		m["mp3"]	= "audio/mpeg";
+		m["wav"]	= "audio/wav";
+		m["flac"]	= "audio/flac";
+		m["aac"]	= "audio/aac";
 
-		m["mp4"]  = "video/mp4";
-		m["avi"]  = "video/x-msvideo";
-		m["mkv"]  = "video/x-matroska";
-		m["mov"]  = "video/quicktime";
+		m["mp4"]	= "video/mp4";
+		m["avi"]	= "video/x-msvideo";
+		m["mkv"]	= "video/x-matroska";
+		m["mov"]	= "video/quicktime";
 	}
 
 	// Look up extension
@@ -108,34 +108,34 @@ static StatusCode saveFile(const std::string &part, location *loc)
 	std::string headers = part.substr(0, sep);
 	std::string content = part.substr(sep + 4);
 
-	// Trim trailing CRLF
-	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
+	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")	// Trim trailing CRLF
 		content.erase(content.size() - 2);
-	// Extract filename
+	
 	size_t fnPos = headers.find("filename");
-	if (fnPos != std::string::npos)
-	{
-		size_t q1 = headers.find("\"", fnPos);
-		size_t q2 = headers.find("\"", q1 + 1);
-		mkdir((loc->getRoot() + "/" + loc->getUploadStore()).c_str(), 0755);
-		std::string filename = loc->getRoot() + "/" + loc->getUploadStore() + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+	if (fnPos == std::string::npos)
+		return BAD_REQUEST;
+	
+	size_t q1 = headers.find("\"", fnPos);
+	size_t q2 = headers.find("\"", q1 + 1);
 
-		std::ofstream out(filename.c_str(), std::ios::binary);
+	if (content.empty() || q1 == std::string::npos || q2 == std::string::npos || q2 <= q1 + 1)
+		return BAD_REQUEST;
 
-		if (out)
-		{
-			out.write(content.data(), content.size());
-			out.close();
-			std::cout << "Saved file: " << filename << std::endl;
-			return CREATED;
-		}
-		if (!out.is_open())
-		{
-			std::cerr << "Failed to open: " << filename << std::endl;
-			return INTERNAL_SERVER_ERROR;
-		}
-	}
-	return BAD_REQUEST;
+	std::string dir = loc->getRoot() + "/" + loc->getUploadStore();
+	if (mkdir(dir.c_str(), 0755) == -1 && errno != EEXIST)
+		return INTERNAL_SERVER_ERROR;
+	
+	std::string filename = dir + "/" + headers.substr(q1 + 1, q2 - q1 - 1);
+
+	std::ofstream out(filename.c_str(), std::ios::binary);
+	if (!out)
+		return INTERNAL_SERVER_ERROR;
+
+	out.write(content.data(), content.size());
+	if (!out.good())
+		return INTERNAL_SERVER_ERROR;
+
+	return CREATED;
 }
 
 static StatusCode	saveForm(const std::string &part, location *loc)
@@ -148,8 +148,6 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 	ss << ms;
 	std::string time = ss.str();
  
-//	std::cout << "BODY:\n" << part << "\n-------------" << std::endl;
-
 	mkdir((loc->getRoot() + "/forms").c_str(), 0755);
 	std::string filename = loc->getRoot() + "/forms/" + time + ".txt";
 		std::ofstream out(filename.c_str(), std::ios::binary);
@@ -157,7 +155,6 @@ static StatusCode	saveForm(const std::string &part, location *loc)
 		return INTERNAL_SERVER_ERROR;	// Dont know if its okay ********************************************************************************************
 	out.write(part.data(), part.size());
 	out.close();
-//	std::cout << "Saved form file: " << filename << std::endl;
 	return CREATED;
 }
 
@@ -185,7 +182,6 @@ StatusCode	request::setUpGet()
 		return NOT_FOUND;
 
 	_contentType = getMimeType(_path);
-	
 	return OK;
 }
 
@@ -225,7 +221,7 @@ StatusCode	request::setUpPost()
 {
 	StatusCode code;
 
-	printHeaders();
+//	printHeaders();
 	if (_headers.find("Content-Type") == _headers.end())
 		return BAD_REQUEST;
 
@@ -239,10 +235,7 @@ StatusCode	request::setUpPost()
 
 		default:			return UNSUPPORTED_MEDIA_TYPE;
 	}
-	if (code != FINISHED)
-		return code;
-
-	return CREATED;
+	return code;
 }
 
 StatusCode request::handleMultipart()
@@ -278,14 +271,15 @@ StatusCode request::handleMultipart()
 		if (last)
 			break;
 		std::string part = _body.substr(start, next - start);
-		if (part.find("filename=") != std::string::npos)
-			saveFile(part, &_location);
-		else
-			saveForm(part, &_location);
+
+		StatusCode code = saveFile(part, &_location);
+
+		if (code != CREATED)
+			return code;
 
 		start = next + boundary.size();
 	}
-	return FINISHED;
+	return CREATED;
 }
 
 //---------------------------------------------------------------------------//
