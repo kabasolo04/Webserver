@@ -13,7 +13,7 @@ request::request(int fd, serverConfig& server):
 	_currentRead(ONE),
 	_currentResponse(ONE)
 	{
-		std::cout << "Request CONSTRUCTOR called for: " << _fd << std::endl;
+		//std::cout << "New client connected: " << _fd << std::endl;
 	}
 
 request::request(const request& other) { *this = other; gettimeofday(&_last_activity, NULL);}
@@ -30,7 +30,7 @@ request::~request()
 {
 	if (_fd > 0)
 	{
-		std::cout << "Request DESTRUCTOR called for: " << _fd << std::endl;
+		//std::cout << "Request DESTRUCTOR called for: " << _fd << std::endl;
 		epollMood(_fd, EPOLL_CTL_DEL);
 		close(_fd);
 	}
@@ -287,12 +287,12 @@ StatusCode	request::setUpMethod()
 		{THREE,	&request::setUpDel	},
 		{FOUR,	&request::endNode	}
 	};
-	
 	if(!_location.methodAllowed(_method))
 		return METHOD_NOT_ALLOWED;
-
+	
 	if (_contentLength > _location.getBodySize())
 		return PAYLOAD_TOO_LARGE;
+
 	setQuery();
 	if (isCgiScript(_path))
 		return CGI;
@@ -361,6 +361,8 @@ StatusCode request::sendResponse()
 	if (!_responseHeader.empty())
 	{
 		ssize_t sent = write(_fd, _responseHeader.c_str(), _responseHeader.size());
+		if (sent == 0)
+			return FINISHED;
 		if (sent == -1)
 			return FINISHED;
 		_responseHeader.erase(0, sent);
@@ -369,14 +371,17 @@ StatusCode request::sendResponse()
 	if (!_responseBody.empty())
 	{
 		ssize_t sent = write(_fd, _responseBody.c_str(), _responseBody.size());
-		std::cout << "Sending BODY" << _fd << std::endl;
+		//std::cout << "Sending BODY" << _fd << std::endl;
+
+		if (sent == 0)
+			return FINISHED;
 
 		if (sent == -1)
 			return FINISHED;
 		_responseBody.erase(0, sent);
 		return REPEAT;
 	}
-	std::cout << "Finished SENDING " << _fd << std::endl;
+	//std::cout << "Finished SENDING " << _fd << std::endl;
 	return FINISHED;
 }
 

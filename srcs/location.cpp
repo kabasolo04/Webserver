@@ -88,8 +88,27 @@ void	location::setUploadEnable	(TOKEN_IT& it, TOKEN_IT& end) { _uploadEnable = (
 void	location::setUploadStore	(TOKEN_IT& it, TOKEN_IT& end) { _uploadStore = *it;										it++;	(void)end;}
 void	location::setCgiRoot		(TOKEN_IT& it, TOKEN_IT& end) { _cgiRoot = *it;											it++;	(void)end;}
 
+
+void printMethods(const std::vector<std::string>& methods)
+{
+    std::cout << "Allowed methods (" << methods.size() << "): ";
+
+    for (std::vector<std::string>::const_iterator it = methods.begin();
+         it != methods.end();
+         ++it)
+    {
+        std::cout << *it;
+        if (it + 1 != methods.end())
+            std::cout << " ";
+    }
+
+    std::cout << std::endl;
+}
+
+
 void	location::addMethods(TOKEN_IT& it, TOKEN_IT& end)	// allow_methods GET POST DELETE;
 {
+	_methods.clear();
 	while (it != end && *it != ";")
 	{
 		if (*it != "GET" && *it != "POST" && *it != "DELETE")

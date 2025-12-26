@@ -95,25 +95,20 @@ void request::execChild(int outPipe[2], int inPipe[2])
 	_exit(127);
 }
 
-static StatusCode myRead(int fd, std::string &_buffer)
+static StatusCode	myRead(int fd, std::string& _buffer)
 {
-	char buf[BUFFER];
+	char buffer[BUFFER];
 
-	ssize_t n = read(fd, buf, sizeof(buf));
-	if (n > 0) {
-		_buffer.append(buf, n);
-		return REPEAT;         // more data may come
-	}
-	if (n < 0)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return REPEAT;	// no data available yet
-		if (errno == EINTR)
-			return REPEAT;	// interrupted, retry
-		return READ_ERROR; 
-	}
-	if (n == 0)
-		return OK; // EOF: child is done writing
+	int len = read(fd, buffer, sizeof(buffer));
+
+	if (len < 0)
+		return REPEAT;
+
+	if (len == 0)
+		return OK;
+
+	_buffer.append(buffer, len);
+
 	return REPEAT;
 }
 
