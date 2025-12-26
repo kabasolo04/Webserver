@@ -3,6 +3,16 @@
 std::map<int, request*>	requestHandler::_requests;
 std::map<int, bool>		requestHandler::_cgi;
 
+void requestHandler::freeAll()
+{
+	for (std::map<int, request*>::iterator it = _requests.begin();
+		 it != _requests.end(); ++it)
+	{
+		delete it->second;
+	}
+	_requests.clear();
+}
+
 void	requestHandler::delReq(int fd)
 {
 	std::map<int, request*>::iterator it = _requests.find(fd);
@@ -16,21 +26,20 @@ void	requestHandler::delReq(int fd)
 void	requestHandler::execReq(int fd)
 {
 	if (_requests.find(fd) != _requests.end())
-		_requests[fd]->exec();
+	{
+		if (_requests[fd]->exec() == false)	// Ended
+			delReq(fd);
+	}
 	else if (_cgi.find(fd) != _cgi.end())
 		setCgi(fd, true);
 }
 
 void	requestHandler::addReq(int fd, serverConfig& server)
 {
-	if(_requests.find(fd) != _requests.end())
-		_requests[fd]->end();
-
 	if (setNonBlocking(fd) == false)
 	{
 		epoll_ctl(conf::epfd(), EPOLL_CTL_DEL, fd, NULL);
 		close(fd);
-		delReq(fd);
 		return ;
 	}
 	epoll_event ev = {};

@@ -13,12 +13,36 @@ request::request(int fd, serverConfig& server):
 	_currentRead(ONE),
 	_currentResponse(ONE)
 	{
-		gettimeofday(&_last_activity, NULL);
+		std::cout << "Request CONSTRUCTOR called for: " << _fd << std::endl;
 	}
 
-request::request(const request& other) { *this = other; }
+request::request(const request& other) { *this = other; gettimeofday(&_last_activity, NULL);}
 
-request::~request() {}
+static void	epollMood(int fd, uint32_t mood)
+{
+	struct epoll_event ev;
+	ev.events = mood;
+	ev.data.fd = fd;
+	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
+}
+
+request::~request()
+{
+	if (_fd > 0)
+	{
+		std::cout << "Request DESTRUCTOR called for: " << _fd << std::endl;
+		epollMood(_fd, EPOLL_CTL_DEL);
+		close(_fd);
+	}
+	if (_cgiChild > 0)	// If there is a running CGI child, terminate it before closing the pipe
+	{
+		requestHandler::delCgi(_infile);
+		kill(_cgiChild, SIGKILL);
+		waitpid(_cgiChild, NULL, 0);
+	}
+	if (_infile >= 0)
+		close(_infile);
+}
 
 request&	request::operator = (const request& other)
 {
@@ -76,14 +100,6 @@ StatusCode request::execNode(Nodes& currentNode, const nodeHandler nodes[])
 	}
 }
 
-static void	epollMood(int fd, uint32_t mood)
-{
-	struct epoll_event ev;
-	ev.events = mood;
-	ev.data.fd = fd;
-	epoll_ctl(conf::epfd(), EPOLL_CTL_MOD, fd, &ev);
-}
-
 static StatusCode	myRead(int fd, std::string& _buffer)
 {
 	char buffer[BUFFER];
@@ -120,6 +136,9 @@ StatusCode	request::setUpRequestLine()
 			_path = _location.getRoot() + _path.substr(_location.getPath().size());
 		else
 			_path = _location.getRoot() + _path;
+
+		gettimeofday(&_last_activity, NULL);
+
 		return FINISHED;
 	}
 	return REPEAT;
@@ -152,10 +171,6 @@ StatusCode request::setUpHeader()
 				std::stringstream sstream(_headers["Content-Length"]);
 				sstream >> _contentLength;
 			}
-/* 			if (_contentLength > _location.getBodySize())
-				return PAYLOAD_TOO_LARGE; */
-
-			
 			return FINISHED;
 		}
 		size_t colon = line.find(':');
@@ -173,8 +188,7 @@ StatusCode request::setUpHeader()
 
 StatusCode	request::setUpBody()
 {
-	if (_headers.count("Transfer-Encoding")
-		&& _headers["Transfer-Encoding"].find("chunked") != std::string::npos )
+	if (_headers.count("Transfer-Encoding") && _headers["Transfer-Encoding"].find("chunked") != std::string::npos )
 		return chunkedBody();
 	else if (_buffer.length() >= _contentLength)
 	{
@@ -192,7 +206,6 @@ StatusCode request::chunkedBody()
 
 	std::string sizeStr = _buffer.substr(0, pos);
 
-	// Handle chunk extensions (ignore after ;)
 	size_t semi = sizeStr.find(';');
 	if (semi != std::string::npos)
 		sizeStr = sizeStr.substr(0, semi);
@@ -204,10 +217,8 @@ StatusCode request::chunkedBody()
 
 	if (chunkSize == 0)
 	{
-		// need "0\r\n\r\n"
-		if (_buffer.size() < pos + 4)
+		if (_buffer.size() < pos + 4)	// need "0\r\n\r\n"
 			return REPEAT;
-
 		_buffer.erase(0, pos + 4);
 		return FINISHED;
 	}
@@ -217,15 +228,11 @@ StatusCode request::chunkedBody()
 	if (_buffer.size() < totalNeeded)
 		return REPEAT;
 
-	// Validate CRLF after chunk data
 	if (_buffer[dataStart + chunkSize] != '\r' ||
-		_buffer[dataStart + chunkSize + 1] != '\n')
+		_buffer[dataStart + chunkSize + 1] != '\n')	// Validate CRLF after chunk data
 		return BAD_REQUEST;
 
-	// Append body
 	_body.append(_buffer, dataStart, chunkSize);
-
-	// Enforce body size limit HERE
 	if (_body.size() > _location.getBodySize())
 		return PAYLOAD_TOO_LARGE;
 
@@ -245,11 +252,8 @@ StatusCode request::readRequest()
 
 	StatusCode code = myRead(_fd, _buffer);
 
-	if (code == READ_ERROR)
+	if (code != REPEAT)
 		return code;
-
-	if (code == CLIENT_DISCONECTED)
-		return REPEAT;
 
 	return execNode(_currentRead, nodes);
 }
@@ -365,11 +369,14 @@ StatusCode request::sendResponse()
 	if (!_responseBody.empty())
 	{
 		ssize_t sent = write(_fd, _responseBody.c_str(), _responseBody.size());
+		std::cout << "Sending BODY" << _fd << std::endl;
+
 		if (sent == -1)
 			return FINISHED;
 		_responseBody.erase(0, sent);
 		return REPEAT;
 	}
+	std::cout << "Finished SENDING " << _fd << std::endl;
 	return FINISHED;
 }
 
@@ -404,8 +411,6 @@ void	request::setUpResponse(StatusCode code)
 
 	switch (code)
 	{
-		case CLIENT_DISCONECTED:	std::cout << "Client Disconnected" << std::endl; return end();
-			break;
 		case AUTOINDEX:				_responseBody = autoindexBody(_path); code = OK;
 			break;
 		case CGI:					if (cgiSetup()) code = OK; else code = INTERNAL_SERVER_ERROR;
@@ -427,27 +432,7 @@ void	request::setUpResponse(StatusCode code)
 	handleStatusCode(code);
 }
 
-void	request::end()
-{
-	if (_fd > 0)
-	{
-		epollMood(_fd, EPOLL_CTL_DEL);
-		close(_fd);
-	}
-	// If there is a running CGI child, terminate it before closing the pipe
-	if (_cgiChild > 0)
-	{
-		requestHandler::delCgi(_infile);
-		kill(_cgiChild, SIGKILL);
-		waitpid(_cgiChild, NULL, 0);
-	}
-	if (_infile >= 0)
-		close(_infile);
-
-	requestHandler::delReq(_fd);
-}
-
-void	request::exec()
+bool	request::exec()
 {
 	static nodeHandler	nodes[] = {
 		{ONE,	&request::readRequest	},
@@ -458,8 +443,8 @@ void	request::exec()
 
 	StatusCode	code = execNode(_currentFunction, nodes);
 
-	if(code == FINISHED && _currentFunction == FOUR)
-		return end();
+	if(code == FINISHED || code == CLIENT_DISCONECTED)
+		return false;
 
 	if (code == REPEAT && _currentFunction != THREE)
 	{
@@ -471,6 +456,8 @@ void	request::exec()
 
 	if (code >= RESPONSE)
 		setUpResponse(code);
+
+	return true;	// Keep running
 }
 
 void	request::printHeaders()

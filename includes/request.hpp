@@ -179,8 +179,8 @@ class request
 		const std::string&	getBody()			const;
 		const std::string&	getMethod()			const;
 
-		void	exec();
-		void	end();
+		bool	exec();
+//		void	end();
 };
 
 std::string	buildAutoindexHtml(std::string uri, DIR *dir);
