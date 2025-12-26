@@ -116,9 +116,6 @@ StatusCode	request::setUpRequestLine()
 
 		_location = _server->getLocation(_path);
 
- 		if(!_location.methodAllowed(_method))
-			return METHOD_NOT_ALLOWED;
-
 		if (_path.find(_location.getPath()) == 0)	// In case location path is prefix of target
 			_path = _location.getRoot() + _path.substr(_location.getPath().size());
 		else
@@ -181,8 +178,6 @@ StatusCode	request::setUpBody()
 		return chunkedBody();
 	else if (_buffer.length() >= _contentLength)
 	{
-		if (_contentLength > _location.getBodySize())
-			return PAYLOAD_TOO_LARGE;
 		_body = _buffer;
 		return FINISHED;
 	}
@@ -288,7 +283,12 @@ StatusCode	request::setUpMethod()
 		{THREE,	&request::setUpDel	},
 		{FOUR,	&request::endNode	}
 	};
+	
+	if(!_location.methodAllowed(_method))
+		return METHOD_NOT_ALLOWED;
 
+	if (_contentLength > _location.getBodySize())
+		return PAYLOAD_TOO_LARGE;
 	setQuery();
 	if (isCgiScript(_path))
 		return CGI;

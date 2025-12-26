@@ -225,7 +225,7 @@ StatusCode	request::setUpPost()
 {
 	StatusCode code;
 
-	printHeaders();
+	//printHeaders();
 	if (_headers.find("Content-Type") == _headers.end())
 		return BAD_REQUEST;
 
@@ -315,7 +315,6 @@ StatusCode	request::setUpDel()
 {
 	_path = urlDecode(_path);
 	
-	std::cout << _path << std::endl;
 	if (is_directory(_path))
 		return FORBIDDEN;
 
